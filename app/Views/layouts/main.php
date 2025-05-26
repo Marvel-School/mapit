@@ -12,14 +12,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">    <!-- Custom CSS -->
     <link rel="stylesheet" href="/css/style.css">
     
-    <!-- Google Maps API Key for JS Fallback -->
-    <?php
+    <!-- Google Maps API Key for JS Fallback -->    <?php
     $apiKey = $googleMapsApiKey ?? '';
-    if (empty($apiKey)) {
-        if (class_exists('\App\Core\Logger')) {
-            \App\Core\Logger::warn('Google Maps API key not found or empty in config');
-        }
-    }
     ?>
     <meta name="google-maps-api-key" content="<?= htmlspecialchars($apiKey); ?>">
 </head>
@@ -160,12 +154,8 @@
         </div>
     </footer>
       <!-- Bootstrap Bundle with Popper -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-    
-    <!-- Custom JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>    <!-- Custom JS -->
     <script src="/js/main.js"></script>
-  <!-- Maps Debug Script -->
-    <script src="/js/maps-debug.js"></script>
     
     <!-- Docker-specific Maps Loader -->
     <script src="/js/docker-maps-loader.js"></script>

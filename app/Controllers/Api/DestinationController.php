@@ -317,22 +317,5 @@ class DestinationController extends Controller
             'success' => true,
             'message' => 'Location added! You can edit the details by clicking on it.',
             'data' => $destination
-        ], 201);
-    }
-
-    /**
-     * Debug endpoint to test API functionality (for development only)
-     * Remove this in production
-     */
-    public function debug()
-    {
-        // Temporarily bypass authentication for testing
-        $this->json([
-            'success' => true,
-            'message' => 'API endpoint is working',
-            'timestamp' => date('Y-m-d H:i:s'),
-            'session_exists' => isset($_SESSION['user_id']),
-            'user_id' => $_SESSION['user_id'] ?? null
-        ]);
-    }
+        ], 201);    }
 }

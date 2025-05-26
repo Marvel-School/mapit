@@ -17,19 +17,10 @@ class Database
         Logger::setLogFile($logFile);
         
         // Get database configuration
-        $dbHost = getenv('DB_HOST') ?: 'mysql';
-        $dbName = getenv('DB_DATABASE') ?: 'mapit';
+        $dbHost = getenv('DB_HOST') ?: 'mysql';        $dbName = getenv('DB_DATABASE') ?: 'mapit';
         $dbUser = getenv('DB_USERNAME') ?: 'mapit_user';
         $dbPass = getenv('DB_PASSWORD') ?: 'mapit_password';
         $dbCharset = getenv('DB_CHARSET') ?: 'utf8mb4';
-        
-        // Log database connection attempt
-        Logger::info('Connecting to database', [
-            'host' => $dbHost,
-            'database' => $dbName,
-            'user' => $dbUser,
-            'charset' => $dbCharset
-        ]);
         
         // DSN string
         $dsn = "mysql:host={$dbHost};dbname={$dbName};charset={$dbCharset}";
@@ -100,10 +91,8 @@ class Database
             Logger::error($errorMsg);
             throw new \Exception($errorMsg);
         }
-        
-        try {
+          try {
             $this->statement = $this->connection->prepare($sql);
-            Logger::debug('SQL Query Prepared', ['sql' => $sql]);
             return $this;
         } catch (PDOException $e) {
             $errorMsg = 'SQL Preparation Error: ' . $e->getMessage();

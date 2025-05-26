@@ -18,14 +18,9 @@ class EnvironmentController extends Controller
         
         // Get server IP addresses
         $serverIps = $this->getServerIpAddresses();
-        
-        // Get hostname information
+          // Get hostname information
         $hostname = gethostname();
         $serverName = $_SERVER['SERVER_NAME'] ?? '';
-        
-        // Log detection for debugging
-        Logger::debug("Docker environment check: " . ($isDocker ? "true" : "false") . 
-                     ", Server IPs: " . implode(", ", $serverIps));
         
         // Return data as JSON
         return Response::json([

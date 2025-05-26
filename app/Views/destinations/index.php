@@ -423,16 +423,13 @@ document.addEventListener('DOMContentLoaded', function() {
                         <button class="btn btn-sm btn-danger mt-2" onclick="window.location.reload()">Reload Page</button>
                     </div>
                 `;
-                
-                // Try to load Google Maps
+                  // Try to load Google Maps
                 if (typeof waitForGoogleMaps === 'function') {
-                    console.log('Attempting to load Google Maps API from initDestinationsMap...');
                     waitForGoogleMaps();
                 }
                 return;
             }
             
-            console.log('Creating destinations map');
             window.destinationsMap = new google.maps.Map(mapContainer, {
                 zoom: 2,
                 center: {lat: 20, lng: 0},
@@ -440,23 +437,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 mapTypeControl: false,
                 streetViewControl: false
             });
-            
-            console.log('Destinations map created successfully');
-            
-            // Use the destinations data passed from PHP instead of making an AJAX call
+              // Use the destinations data passed from PHP instead of making an AJAX call
             const userDestinations = <?= json_encode($userDestinations ?? []); ?>;
-            const publicDestinations = <?= json_encode($publicDestinations ?? []); ?>;
-            
-            console.log(`Loaded ${userDestinations.length} user destinations and ${publicDestinations.length} public destinations`);
-            
-            // Combine user and public destinations for the map
+            const publicDestinations = <?= json_encode($publicDestinations ?? []); ?>;              // Combine user and public destinations for the map
             const allDestinations = [...userDestinations, ...publicDestinations];
-            addDestinationsToMap(window.destinationsMap, allDestinations);
+            window.addDestinationsToMap(window.destinationsMap, allDestinations);
             
             // Enable interactive map clicking for adding destinations
             enableInteractiveMapClicking(window.destinationsMap);
-            
-            console.log('Destinations map initialization complete');
         } catch (error) {
             console.error('Error initializing destinations map:', error);
             mapContainer.innerHTML = `
@@ -466,15 +454,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     <button class="btn btn-sm btn-danger mt-2" onclick="window.location.reload()">Reload Page</button>
                 </div>
             `;
-            
-            // Log the error to server
-            if (typeof logToServer === 'function') {
-                logToServer('error', 'Error initializing destinations map: ' + error.message);
-            }
+              // Log the error (server logging removed for performance)
+            console.error('Error initializing destinations map:', error.message);
         }
-    }
-      // Function to add destinations to the map
-    function addDestinationsToMap(map, destinations) {
+    }    // Function to add destinations to the map (make it globally accessible)
+    window.addDestinationsToMap = function addDestinationsToMap(map, destinations) {
         const bounds = new google.maps.LatLngBounds();
         const visitedIcon = {
             url: '/images/markers/visited.png',
@@ -587,10 +571,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (map.getZoom() > 12) {
                     map.setZoom(12);
                 }
-                google.maps.event.removeListener(listener);
-            });
-        }
-    }
+                google.maps.event.removeListener(listener);        });        }
+    };
 });
 
 // Function to update destination status

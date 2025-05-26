@@ -10,11 +10,9 @@
         // Maximum number of retry attempts
         MAX_RETRIES: 5,
         // Initial delay between retries in milliseconds
-        INITIAL_RETRY_DELAY: 1000,
-        // Maximum delay between retries (with exponential backoff)
-        MAX_RETRY_DELAY: 10000,
-        // Debug mode
-        DEBUG: true,
+        INITIAL_RETRY_DELAY: 1000,        // Maximum delay between retries (with exponential backoff)        MAX_RETRY_DELAY: 10000,
+        // Debug mode disabled
+        DEBUG: false,
         // Alternative libraries to try loading if the main one fails
         FALLBACK_LIBRARIES: ['places', 'marker', 'places,marker', '']
     };
@@ -28,41 +26,30 @@
         isLoading: false,
         hasLoaded: false,
         callbacks: []
-    };
-
-    /**
+    };    /**
      * Initialize the Google Maps loader with basic error detection
      */
     function init() {
-        console.log('Docker Maps Loader: Initializing');
-        
         // Extract API key from meta tag
         const metaElement = document.querySelector('meta[name="google-maps-api-key"]');
         state.apiKey = metaElement ? metaElement.getAttribute('content') : '';
-        
-        if (!state.apiKey) {
-            console.error('Docker Maps Loader: No API key found');
+          if (!state.apiKey) {
             showError('Google Maps API key not found');
             return;
         }
 
         // Check if we're in a Docker environment 
-        checkDockerEnvironment()
-            .then(isDocker => {
+        checkDockerEnvironment()            .then(isDocker => {
                 if (isDocker) {
-                    console.log('Docker Maps Loader: Docker environment detected');
                     // Use Docker-specific loading strategy
                     loadWithRetry();
                 } else {
-                    console.log('Docker Maps Loader: Non-Docker environment detected, using standard loader');
                     // Just use the standard loading mechanism
                     loadMapsApi();
                 }
             });
 
-        // Add global error handler for script loading
-        window.gm_authFailure = function() {
-            console.error('Docker Maps Loader: Authentication failure from Google Maps API');
+        // Add global error handler for script loading        window.gm_authFailure = function() {
             // If auth failure happens in Docker, try IP-based fallback
             handleLoadError('auth_failure');
         };
@@ -78,9 +65,8 @@
                 .then(response => response.json())
                 .then(data => {
                     resolve(data.isDocker === true);
-                })
-                .catch(error => {
-                    console.warn('Docker Maps Loader: Could not detect environment, assuming Docker', error);
+                })                .catch(error => {
+                    // Assume Docker if detection fails
                     resolve(true);
                 });
         });
@@ -91,20 +77,15 @@
      */
     function loadWithRetry() {
         if (state.isLoading) return;
-        
-        if (state.attempts >= CONFIG.MAX_RETRIES) {
-            console.error(`Docker Maps Loader: Failed to load Google Maps after ${state.attempts} attempts`);
+          if (state.attempts >= CONFIG.MAX_RETRIES) {
             showError('Failed to load Google Maps after multiple attempts');
             return;
         }
         
         state.isLoading = true;
         state.attempts++;
-        
-        // Try different library combinations
+          // Try different library combinations
         const libraryParam = CONFIG.FALLBACK_LIBRARIES[state.libraryIndex] || '';
-        
-        console.log(`Docker Maps Loader: Attempt ${state.attempts} with libraries "${libraryParam}"`);
         
         // Create and append the script
         const script = document.createElement('script');
@@ -113,24 +94,20 @@
         script.defer = true;
         
         script.onerror = function(error) {
-            console.error('Docker Maps Loader: Script load error', error);
+            
             handleLoadError('script_error');
         };
         
         // Add the script to the page
         document.head.appendChild(script);
-        
-        // Set timeout for loading
+          // Set timeout for loading
         setTimeout(function() {
             if (!window.google || !window.google.maps) {
-                console.warn('Docker Maps Loader: Loading timeout');
                 handleLoadError('timeout');
             }
         }, 10000);
-        
-        // Global callback for when Maps API loads
+          // Global callback for when Maps API loads
         window.dockerMapsCallback = function() {
-            console.log('Docker Maps Loader: Google Maps API loaded successfully');
             state.isLoading = false;
             state.hasLoaded = true;
             
@@ -144,22 +121,18 @@
                 try {
                     callback();
                 } catch (e) {
-                    console.error('Docker Maps Loader: Error in callback', e);
+                    
                 }
             });
             
             // Remove all error messages
             document.querySelectorAll('.docker-maps-error').forEach(el => el.remove());
         };
-    }
-
-    /**
+    }    /**
      * Handle load errors with exponential backoff and fallback libraries
      */
     function handleLoadError(reason) {
         state.isLoading = false;
-        
-        console.warn(`Docker Maps Loader: Failed to load (${reason}), retrying...`);
         
         // Try next library combination
         state.libraryIndex = (state.libraryIndex + 1) % CONFIG.FALLBACK_LIBRARIES.length;

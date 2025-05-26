@@ -89,6 +89,9 @@ $this->post('admin/destinations/{id}/reject', 'Admin\DestinationController', 're
 
 $this->get('admin/logs', 'Admin\LogController', 'index');
 
-// Debug Routes
-$this->post('api/debug/log', 'Api\DebugController', 'log');
+// Debug Routes (disabled for production)
+// $this->post('api/debug/log', 'DebugController', 'log');
+// $this->get('api/debug/view-logs', 'DebugController', 'viewLogs');
+// $this->get('api/debug/stats', 'DebugController', 'stats');
+// $this->get('admin/debug', 'DebugController', 'adminPage');
 $this->get('api/debug/environment', 'Api\EnvironmentController', 'getInfo');

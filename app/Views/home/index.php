@@ -85,7 +85,7 @@
                         <?php if (!empty($destination['image'])): ?>
                             <img src="/images/destinations/<?= htmlspecialchars($destination['image']); ?>" class="card-img-top destination-img" alt="<?= htmlspecialchars($destination['name']); ?>">
                         <?php else: ?>
-                            <img src="/images/destination-placeholder.jpg" class="card-img-top destination-img" alt="<?= htmlspecialchars($destination['name']); ?>">
+                            <img src="/images/destination-placeholder.svg" class="card-img-top destination-img" alt="<?= htmlspecialchars($destination['name']); ?>">
                         <?php endif; ?>
                         <div class="card-body">
                             <h5 class="card-title"><?= htmlspecialchars($destination['name']); ?></h5>
@@ -140,7 +140,7 @@
     }
     
     .cta {
-        background-image: linear-gradient(rgba(13, 110, 253, 0.8), rgba(13, 110, 253, 0.9)), url('/images/cta-bg.jpg');
+        background-image: linear-gradient(rgba(13, 110, 253, 0.8), rgba(13, 110, 253, 0.9)), url('/images/cta-bg.svg');
         background-size: cover;
         background-position: center;
     }

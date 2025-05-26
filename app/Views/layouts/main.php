@@ -152,18 +152,23 @@
                 <p>&copy; <?= date('Y'); ?> MapIt. All rights reserved.</p>
             </div>
         </div>
-    </footer>
-      <!-- Bootstrap Bundle with Popper -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>    <!-- Custom JS -->
+    </footer>    <!-- Bootstrap Bundle with Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Preconnect to Google Maps domains for faster loading -->
+    <link rel="preconnect" href="https://maps.googleapis.com">
+    <link rel="preconnect" href="https://maps.gstatic.com">
+      <!-- Custom JS -->
     <script src="/js/main.js"></script>
     
-    <!-- Docker-specific Maps Loader -->
-    <script src="/js/docker-maps-loader.js"></script>
-    
-    <!-- Enhanced Maps Initialization -->
+    <!-- Destinations Map Handler -->
     <script src="/js/destinations-map.js"></script>
     
-    <!-- Google Maps API is now loaded by the docker-maps-loader.js script -->
-    <!-- The original script tag has been removed to prevent duplicate loading -->
+    <!-- Google Maps API - Simple and Direct Loading -->
+    <?php if (!empty($apiKey)): ?>
+    <script async defer 
+            src="https://maps.googleapis.com/maps/api/js?key=<?= htmlspecialchars($apiKey); ?>&libraries=places,marker&callback=initializeGoogleMaps&v=weekly">
+    </script>
+    <?php endif; ?>
 </body>
 </html>

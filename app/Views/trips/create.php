@@ -138,12 +138,12 @@ document.addEventListener('DOMContentLoaded', function() {
     function initMap() {
         const mapElement = document.getElementById('trip-map');
         if (!mapElement) return;
-        
-        map = new google.maps.Map(mapElement, {
+          map = new google.maps.Map(mapElement, {
             center: { lat: 20, lng: 0 },
             zoom: 2,
             mapTypeId: 'terrain',
-            mapTypeControl: false
+            mapTypeControl: false,
+            mapId: 'MAPIT_TRIP_CREATE_MAP'
         });
         
         directionsService = new google.maps.DirectionsService();

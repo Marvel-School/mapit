@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="google-maps-api-key" content="AIzaSyDsR974k1b4C4zkmFjFFYR3eSX3HWJ66A0">
+    <title>Debug Main.js Loading</title>
+</head>
+<body>
+    <h1>Debug Main.js Loading</h1>
+    <div id="results"></div>
+
+    <script>
+        console.log('Starting debug...');
+        
+        function logResult(message) {
+            const div = document.getElementById('results');
+            div.innerHTML += '<p>' + message + '</p>';
+            console.log(message);
+        }
+
+        // Check if function exists before loading main.js
+        logResult('Before loading main.js: getGoogleMapsApiKey = ' + (typeof getGoogleMapsApiKey));
+
+        // Create and append script tag for main.js
+        const script = document.createElement('script');
+        script.src = '/js/main.js';
+        script.onload = function() {
+            logResult('main.js loaded successfully');
+            logResult('After loading main.js: getGoogleMapsApiKey = ' + (typeof getGoogleMapsApiKey));
+            
+            if (typeof getGoogleMapsApiKey === 'function') {
+                try {
+                    const apiKey = getGoogleMapsApiKey();
+                    logResult('API Key from function: ' + apiKey);
+                } catch (error) {
+                    logResult('Error calling getGoogleMapsApiKey: ' + error.message);
+                }
+            } else {
+                logResult('Function still not available after main.js load');
+                
+                // Let's check what functions are actually available
+                logResult('Available global functions:');
+                for (let prop in window) {
+                    if (typeof window[prop] === 'function' && prop.includes('google') || prop.includes('Maps') || prop.includes('Api')) {
+                        logResult('  - ' + prop);
+                    }
+                }
+            }
+        };
+        script.onerror = function() {
+            logResult('Failed to load main.js');
+        };
+        
+        document.head.appendChild(script);
+    </script>
+</body>
+</html>

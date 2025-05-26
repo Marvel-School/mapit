@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="google-maps-api-key" content="AIzaSyDsR974k1b4C4zkmFjFFYR3eSX3HWJ66A0">
+    <title>Final Function Test</title>
+</head>
+<body>
+    <h1>Final Function Test</h1>
+    <div id="results">
+        <h3>Loading main.js and testing getGoogleMapsApiKey function...</h3>
+    </div>
+
+    <!-- Load main.js directly like it would be in the application -->
+    <script src="/js/main.js"></script>
+    
+    <script>
+        function logResult(message) {
+            const div = document.getElementById('results');
+            div.innerHTML += '<p>' + message + '</p>';
+            console.log(message);
+        }
+
+        // Wait for DOM to be ready
+        document.addEventListener('DOMContentLoaded', function() {
+            logResult('DOM Content Loaded');
+            
+            // Test immediately
+            logResult('Testing function availability immediately...');
+            if (typeof getGoogleMapsApiKey === 'function') {
+                try {
+                    const apiKey = getGoogleMapsApiKey();
+                    logResult('SUCCESS: API Key found: ' + apiKey);
+                } catch (error) {
+                    logResult('ERROR calling function: ' + error.message);
+                }
+            } else {
+                logResult('FUNCTION NOT FOUND: getGoogleMapsApiKey is ' + typeof getGoogleMapsApiKey);
+            }
+        });
+
+        // Also test after a short delay
+        setTimeout(function() {
+            logResult('Testing function after 1 second delay...');
+            if (typeof getGoogleMapsApiKey === 'function') {
+                try {
+                    const apiKey = getGoogleMapsApiKey();
+                    logResult('SUCCESS (delayed): API Key found: ' + apiKey);
+                } catch (error) {
+                    logResult('ERROR (delayed) calling function: ' + error.message);
+                }
+            } else {
+                logResult('FUNCTION STILL NOT FOUND (delayed): getGoogleMapsApiKey is ' + typeof getGoogleMapsApiKey);
+            }
+        }, 1000);
+    </script>
+</body>
+</html>

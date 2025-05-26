@@ -10,72 +10,53 @@ let infoWindow;
 let quickCreateMarker = null;
 let selectedPosition = null;
 let googleMapsInitialized = false;
-let googleMapsLoadAttempts = 0;
-const MAX_LOAD_ATTEMPTS = 3;
 
 // Google Maps initialization callback - Called when the script loads
 function initializeGoogleMaps() {
-    // Check if we actually have access to the Google Maps API
+    // Simple and direct initialization
     if (typeof google === 'undefined' || typeof google.maps === 'undefined') {
-        logGoogleMapsStatus('API_UNAVAILABLE_IN_CALLBACK');
-        waitForGoogleMaps(); // Try to reload
+        console.warn('Google Maps API not available in callback');
         return;
     }
     
-    // Clear any pending timeouts
-    if (window.googleMapsTimeouts && window.googleMapsTimeouts.length) {
-        window.googleMapsTimeouts.forEach(clearTimeout);
-        window.googleMapsTimeouts = [];
-    }
-      googleMapsInitialized = true;
+    googleMapsInitialized = true;
     
-    // Check for API key restrictions
-    const apiKey = document.querySelector('meta[name="google-maps-api-key"]')?.getAttribute('content');
-      // Initialize maps if DOM is ready
+    // Initialize maps if DOM is ready
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', initializeMapElements);
     } else {
         initializeMapElements();
     }
-      // Trigger any callbacks waiting for Google Maps to load
-    if (window.googleMapsCallbacks && Array.isArray(window.googleMapsCallbacks)) {        window.googleMapsCallbacks.forEach(callback => {
+    
+    // Trigger any callbacks waiting for Google Maps to load
+    if (window.googleMapsCallbacks && Array.isArray(window.googleMapsCallbacks)) {
+        window.googleMapsCallbacks.forEach(callback => {
             try {
                 callback();
             } catch (error) {
-                // Error in callback - silently handle
+                console.warn('Error in Google Maps callback:', error);
             }
         });
+        window.googleMapsCallbacks = [];
     }
-      // Log successful initialization
-    logGoogleMapsStatus('INITIALIZED_SUCCESSFULLY');
+    
+    console.log('Google Maps initialized successfully');
 }
 
 // Error handler for Google Maps API loading
 function gm_authFailure() {
-    // Show error message on all map containers
+    console.error('Google Maps authentication failed');
+    
+    // Show simple error message on all map containers
     const mapContainers = document.querySelectorAll('[id$="-map"]');
     mapContainers.forEach(container => {
         container.innerHTML = `
             <div class="alert alert-danger">
-                <h5>Map could not be loaded. Google Maps API key may be missing.</h5>
-                <p>Please check that your API key is valid and properly configured.</p>
+                <h5>Map could not be loaded</h5>
+                <p>Please check that your Google Maps API key is valid and properly configured.</p>
             </div>
         `;
     });
-    
-    // Log the authentication failure
-    logGoogleMapsStatus('AUTH_FAILURE');
-    
-    // Try reloading with a new key if there's a fallback
-    const fallbackApiKey = window.FALLBACK_MAPS_API_KEY;
-    if (fallbackApiKey && fallbackApiKey !== apiKey) {
-        
-        const script = document.createElement('script');
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${fallbackApiKey}&libraries=places,marker&callback=initializeGoogleMaps&v=weekly`;
-        script.async = true;
-        script.defer = true;
-        document.body.appendChild(script);
-    }
 }
 
 // Initialize map elements after both DOM and Google Maps are ready
@@ -102,60 +83,6 @@ function initializeMapElements() {
     const destinationsMap = document.getElementById('destinations-map');
     if (destinationsMap) {
         initDestinationsMap();
-    }
-}
-
-// Function to check if Google Maps is loaded and try to load it if not
-function waitForGoogleMaps() {
-    if (typeof google !== 'undefined' && google.maps) {
-        // Google Maps is already loaded
-        return;
-    }
-    
-    // If we've tried too many times, show an error    if (googleMapsLoadAttempts >= MAX_LOAD_ATTEMPTS) {
-        const mapContainers = document.querySelectorAll('[id$="-map"]');
-        mapContainers.forEach(container => {
-            container.innerHTML = '<div class="alert alert-danger">Failed to load Google Maps API after multiple attempts. Please refresh the page.</div>';
-        });
-        
-        // Log details about the failure for debugging
-        logGoogleMapsStatus('FAILED_AFTER_RETRIES');
-        return;
-    }
-      googleMapsLoadAttempts++;
-    
-    // Create a new script tag to load Google Maps
-    const apiKey = document.querySelector('meta[name="google-maps-api-key"]')?.getAttribute('content');    if (!apiKey) {
-        logGoogleMapsStatus('NO_API_KEY');
-        return;
-    }
-    
-    const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,marker&callback=initializeGoogleMaps&v=weekly`;
-    script.async = true;
-    script.defer = true;    script.onerror = (e) => {
-        logGoogleMapsStatus('SCRIPT_LOAD_ERROR');
-        setTimeout(waitForGoogleMaps, 2000); // Try again after 2 seconds
-    };
-      // Add a timeout to detect if the script loads but callback isn't called
-    const timeoutId = setTimeout(() => {
-        if (!googleMapsInitialized) {
-            logGoogleMapsStatus('LOADED_NOT_INITIALIZED');
-        }
-    }, 5000);
-    
-    // Store the timeout ID for cleanup
-    window.googleMapsTimeouts = window.googleMapsTimeouts || [];
-    window.googleMapsTimeouts.push(timeoutId);
-    
-    document.body.appendChild(script);
-}
-
-// Log details about Google Maps status for debugging
-function logGoogleMapsStatus(status) {
-    // Only log critical errors, not verbose diagnostics
-    if (status.includes('ERROR') || status.includes('FAILURE')) {
-        console.error('Google Maps issue:', status);
     }
 }
 
@@ -188,22 +115,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const forms = document.querySelectorAll('.needs-validation');
     if (forms.length > 0) {
         initializeFormValidation(forms);
-    }    // Initialize map elements if Google Maps is already loaded
+    }
+
+    // Initialize modal accessibility features
+    initializeModalAccessibility();    // Initialize map elements if Google Maps is already loaded
     if (googleMapsInitialized) {
-        initializeMapElements();    } else {
-        // Check if Google Maps is loaded after a short delay
-        setTimeout(() => {
-            if (!googleMapsInitialized) {
-                waitForGoogleMaps();
-            }
-        }, 1000);
-        
-        // Additional safety check after a longer delay
-        setTimeout(() => {
-            if (!googleMapsInitialized && googleMapsLoadAttempts === 0) {
-                waitForGoogleMaps();
-            }
-        }, 3000);
+        initializeMapElements();
     }
 
     // Handle status toggle in destination form
@@ -233,10 +150,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 reader.readAsDataURL(file);
             }
         });
+    }    // Trip destination selection
+    if (typeof initializeDestinationSelectors === 'function') {
+        initializeDestinationSelectors();
     }
-
-    // Trip destination selection
-    initializeDestinationSelectors();
 
     // Handle badge tooltips
     const badgeElements = document.querySelectorAll('.badge-card');
@@ -254,7 +171,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initialize quick destination creation functionality
     initializeQuickDestinationCreate();
+
+    // Initialize modal accessibility features
+    initializeModalAccessibility();
 });
+
+/**
+ * Utility function to get Google Maps API key from meta tag
+ * This function is used by tests and other components that need to access the API key
+ * @returns {string|null} The Google Maps API key or null if not found
+ */
+function getGoogleMapsApiKey() {
+    const metaTag = document.querySelector('meta[name="google-maps-api-key"]');
+    return metaTag ? metaTag.getAttribute('content') : null;
+}
 
 /**
  * Initialize form validation 
@@ -395,9 +325,8 @@ function initializeTravelMap(mapElement) {
             { featureType: "administrative", elementType: "geometry.fill", stylers: [{ color: "#fefefe" }, { lightness: 20 }] },
             { featureType: "administrative", elementType: "geometry.stroke", stylers: [{ color: "#fefefe" }, { lightness: 17 }, { weight: 1.2 }] }
         ]
-    };
-
-    // Create the map
+    };    // Create the map with mapId for Advanced Markers
+    mapOptions.mapId = 'MAPIT_TRAVEL_MAP';
     window.travelMap = new google.maps.Map(mapElement, mapOptions);
     infoWindow = new google.maps.InfoWindow();
 
@@ -480,7 +409,8 @@ function handleMapClick(position, map) {
                 },
                 animation: google.maps.Animation.DROP
             });
-        }    } catch (error) {
+        }
+    } catch (error) {
         // Fallback to legacy Marker
         quickCreateMarker = new google.maps.Marker({
             position: position,
@@ -498,11 +428,13 @@ function handleMapClick(position, map) {
             },
             animation: google.maps.Animation.DROP
         });
-    }    // Update modal with coordinates
+    }
+    // Update modal with coordinates
     updateQuickCreateModal(position);
     
     // Show the modal
-    const modalElement = document.getElementById('quickAddDestinationModal');    if (!modalElement) {
+    const modalElement = document.getElementById('quickAddDestinationModal');
+    if (!modalElement) {
         return;
     }
     
@@ -532,6 +464,12 @@ function updateQuickCreateModal(position) {
  * @param {google.maps.LatLng} position - The position to reverse geocode
  */
 function reverseGeocodeForQuickCreate(position) {
+    // Check if Geocoding API is available
+    if (!google.maps.Geocoder) {
+        console.warn('Geocoding API not available, skipping reverse geocoding');
+        return;
+    }
+    
     const geocoder = new google.maps.Geocoder();
     
     geocoder.geocode({ location: position }, function(results, status) {
@@ -585,6 +523,14 @@ function reverseGeocodeForQuickCreate(position) {
                     }
                 }
             }
+        } else if (status === google.maps.GeocoderStatus.REQUEST_DENIED) {
+            console.warn('Geocoding API request denied - API may not be enabled for this project');
+            showNotification('Geocoding service not available. Please fill in location details manually.', 'warning');
+        } else if (status === google.maps.GeocoderStatus.OVER_QUERY_LIMIT) {
+            console.warn('Geocoding API quota exceeded');
+            showNotification('Geocoding quota exceeded. Please fill in location details manually.', 'warning');
+        } else {
+            console.warn('Geocoding failed:', status);
         }
     });
 }
@@ -615,7 +561,109 @@ function initializeQuickDestinationCreate() {
         modal.addEventListener('hidden.bs.modal', function() {
             resetQuickCreateModal();
         });
+        
+        // Enhanced accessibility: Focus management
+        modal.addEventListener('shown.bs.modal', function() {
+            // Focus on the first input field when modal opens
+            const firstInput = modal.querySelector('input[type="text"], input[type="email"], textarea, select');
+            if (firstInput) {
+                firstInput.focus();
+            }
+        });
+        
+        // Trap focus within modal
+        modal.addEventListener('keydown', function(e) {
+            if (e.key === 'Tab') {
+                trapFocusInModal(e, modal);
+            }
+        });
     }
+}
+
+/**
+ * Trap focus within a modal for accessibility
+ * @param {KeyboardEvent} e - The keyboard event
+ * @param {HTMLElement} modal - The modal element
+ */
+function trapFocusInModal(e, modal) {
+    const focusableElements = modal.querySelectorAll(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    );
+    const firstFocusable = focusableElements[0];
+    const lastFocusable = focusableElements[focusableElements.length - 1];
+    
+    if (e.shiftKey && document.activeElement === firstFocusable) {
+        // Shift + Tab on first element, go to last
+        e.preventDefault();
+        lastFocusable.focus();
+    } else if (!e.shiftKey && document.activeElement === lastFocusable) {
+        // Tab on last element, go to first
+        e.preventDefault();
+        firstFocusable.focus();
+    }
+}
+
+/**
+ * Initialize modal accessibility features for all modals
+ */
+function initializeModalAccessibility() {
+    const modals = document.querySelectorAll('.modal');
+    
+    modals.forEach(modal => {
+        // Focus management
+        modal.addEventListener('shown.bs.modal', function() {
+            // Store the element that triggered the modal
+            modal.previouslyFocusedElement = document.activeElement;
+            
+            // Focus on the close button or first focusable element
+            const closeButton = modal.querySelector('.btn-close');
+            const firstFocusable = modal.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+            
+            if (closeButton) {
+                closeButton.focus();
+            } else if (firstFocusable) {
+                firstFocusable.focus();
+            }
+        });
+        
+        // Return focus when modal is hidden
+        modal.addEventListener('hidden.bs.modal', function() {
+            if (modal.previouslyFocusedElement) {
+                modal.previouslyFocusedElement.focus();
+                modal.previouslyFocusedElement = null;
+            }
+        });
+        
+        // Trap focus within modal
+        modal.addEventListener('keydown', function(e) {
+            if (e.key === 'Tab') {
+                trapFocusInModal(e, modal);
+            }
+            
+            // Close modal on Escape key
+            if (e.key === 'Escape') {
+                const bsModal = bootstrap.Modal.getInstance(modal);
+                if (bsModal) {
+                    bsModal.hide();
+                }
+            }
+        });
+        
+        // Ensure proper ARIA attributes
+        if (!modal.hasAttribute('aria-labelledby')) {
+            const modalTitle = modal.querySelector('.modal-title');
+            if (modalTitle && modalTitle.id) {
+                modal.setAttribute('aria-labelledby', modalTitle.id);
+            }
+        }
+        
+        if (!modal.hasAttribute('aria-describedby')) {
+            const modalBody = modal.querySelector('.modal-body');
+            if (modalBody && modalBody.id) {
+                modal.setAttribute('aria-describedby', modalBody.id);
+            }
+        }
+    });
 }
 
 /**
@@ -650,7 +698,7 @@ function handleQuickDestinationSave() {
     // Disable save button
     saveButton.disabled = true;
     saveButton.textContent = 'Saving...';
-      // Send to API
+    // Send to API
     fetch('/api/destinations/quick-create', {
         method: 'POST',
         headers: {
@@ -678,7 +726,8 @@ function handleQuickDestinationSave() {
         } else {
             throw new Error(result.message || 'Failed to create destination');
         }
-    })    .catch(error => {
+    })
+    .catch(error => {
         showNotification(error.message || 'Failed to create destination', 'error');
     })
     .finally(() => {
@@ -754,11 +803,11 @@ function showNotification(message, type = 'info') {
 function addNewDestinationToMap(destinationData, formData) {
     // Get the current map (could be travelMap or destinationsMap)
     const currentMap = window.travelMap || window.destinationsMap;
-      if (!currentMap) {
+    if (!currentMap) {
         setTimeout(() => window.location.reload(), 1000);
         return;
     }
-      // Remove the temporary marker
+    // Remove the temporary marker
     if (quickCreateMarker) {
         if (quickCreateMarker.map !== undefined) {
             quickCreateMarker.map = null; // AdvancedMarkerElement
@@ -839,7 +888,8 @@ function addNewDestinationToMap(destinationData, formData) {
                 };
                 img.src = (isVisited ? visitedIcon : wishlistIcon).url;
             });
-        }    } catch (error) {
+        }
+    } catch (error) {
         // Fallback to legacy marker
         const visitedIcon = {
             url: '/images/markers/visited.png',
@@ -867,7 +917,8 @@ function addNewDestinationToMap(destinationData, formData) {
                     fillOpacity: 0.8,
                     scale: 8,
                     strokeColor: '#ffffff',
-                    strokeWeight: 2                };
+                    strokeWeight: 2
+                };
                 marker.setIcon(fallbackIcon);
             };
             img.src = (isVisited ? visitedIcon : wishlistIcon).url;
@@ -883,7 +934,8 @@ function addNewDestinationToMap(destinationData, formData) {
                 <a href="/destinations/${destinationData.id}" class="btn btn-sm btn-primary">View Details</a>
             </div>
         `
-    });    // Add click listener based on marker type
+    });
+    // Add click listener based on marker type
     if (google.maps.marker && google.maps.marker.AdvancedMarkerElement &&
         marker instanceof google.maps.marker.AdvancedMarkerElement) {
         marker.addEventListener('click', () => {
@@ -903,7 +955,8 @@ function addNewDestinationToMap(destinationData, formData) {
     bounds.extend(position);
     
     // Get all existing markers and extend bounds
-    // This is a simplified approach - in a real app you might track markers    currentMap.panTo(position);
+    // This is a simplified approach - in a real app you might track markers
+    currentMap.panTo(position);
 }
 
 /**
@@ -944,7 +997,195 @@ function updateDestinationStats() {
     if (window.location.pathname.includes('/destinations')) {
         // Show a message that the page will refresh to show the new destination
         showNotification('Refreshing page to show your new destination...', 'info');
-        setTimeout(() => {        window.location.reload();
+        setTimeout(() => {
+            window.location.reload();
         }, 2000);
     }
+}
+
+/**
+ * Function to initialize destination selectors for trips
+ */
+function initializeDestinationSelectors() {
+    const destinationSelects = document.querySelectorAll('select[name="destination_ids[]"]');
+    
+    if (destinationSelects.length > 0) {
+        destinationSelects.forEach(select => {
+            // Add event listeners for destination selection
+            select.addEventListener('change', function() {
+                const selectedDestination = this.value;
+                if (selectedDestination) {
+                    // Update any related UI elements
+                    updateDestinationDisplay(selectedDestination);
+                }
+            });
+        });
+    }
+
+    // Initialize destination search functionality
+    const destinationSearch = document.getElementById('destination-search');
+    if (destinationSearch) {
+        destinationSearch.addEventListener('input', function() {
+            debounceDestinationSearch(this.value);
+        });
+    }
+
+    // Initialize add destination buttons
+    const addDestinationBtns = document.querySelectorAll('.add-destination-btn');
+    if (addDestinationBtns.length > 0) {
+        addDestinationBtns.forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                addNewDestinationRow();
+            });
+        });
+    }
+}
+
+/**
+ * Helper function to update destination display
+ */
+function updateDestinationDisplay(destinationId) {
+    // Find and update any related destination displays
+    const displays = document.querySelectorAll(`[data-destination-id="${destinationId}"]`);
+    displays.forEach(display => {
+        // Update display as needed
+        display.classList.add('selected');
+    });
+}
+
+/**
+ * Debounced search function
+ */
+let destinationSearchTimeout;
+function debounceDestinationSearch(query) {
+    clearTimeout(destinationSearchTimeout);
+    destinationSearchTimeout = setTimeout(() => {
+        if (query.length >= 2) {
+            searchDestinations(query);
+        }
+    }, 300);
+}
+
+/**
+ * Search destinations function
+ */
+function searchDestinations(query) {
+    fetch(`/api/destinations/search?q=${encodeURIComponent(query)}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.data) {
+                updateDestinationSearchResults(data.data);
+            }
+        })
+        .catch(error => {
+            console.warn('Destination search failed:', error);
+        });
+}
+
+/**
+ * Update search results
+ */
+function updateDestinationSearchResults(destinations) {
+    const resultsContainer = document.getElementById('destination-search-results');
+    if (!resultsContainer) return;
+
+    resultsContainer.innerHTML = '';
+    
+    destinations.forEach(destination => {
+        const resultItem = document.createElement('div');
+        resultItem.className = 'destination-search-result';
+        resultItem.innerHTML = `
+            <div class="destination-item" data-destination-id="${destination.id}">
+                <h6>${destination.name}</h6>
+                <small class="text-muted">${destination.location || ''}</small>
+            </div>
+        `;
+        
+        resultItem.addEventListener('click', () => {
+            selectDestination(destination);
+        });
+        
+        resultsContainer.appendChild(resultItem);
+    });
+}
+
+/**
+ * Select a destination
+ */
+function selectDestination(destination) {
+    const event = new CustomEvent('destinationSelected', {
+        detail: destination
+    });
+    document.dispatchEvent(event);
+}
+
+/**
+ * Add new destination row (for multi-destination trips)
+ */
+function addNewDestinationRow() {
+    const container = document.getElementById('destinations-container');
+    if (!container) return;
+
+    const newRow = document.createElement('div');
+    newRow.className = 'destination-row mb-3';
+    newRow.innerHTML = `
+        <div class="row">
+            <div class="col-md-10">
+                <select name="destination_ids[]" class="form-select" required>
+                    <option value="">Select a destination</option>
+                    <!-- Options will be populated dynamically -->
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="button" class="btn btn-outline-danger remove-destination-btn">
+                    <i class="fas fa-minus"></i>
+                </button>
+            </div>
+        </div>
+    `;
+
+    // Add remove functionality
+    const removeBtn = newRow.querySelector('.remove-destination-btn');
+    removeBtn.addEventListener('click', () => {
+        newRow.remove();
+    });
+
+    container.appendChild(newRow);
+    
+    // Initialize the new select
+    const newSelect = newRow.querySelector('select');
+    initializeDestinationSelect(newSelect);
+}
+
+/**
+ * Initialize a single destination select
+ */
+function initializeDestinationSelect(selectElement) {
+    // Populate with existing destinations
+    fetch('/api/destinations')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.data) {
+                selectElement.innerHTML = '<option value="">Select a destination</option>';
+                data.data.forEach(destination => {
+                    const option = document.createElement('option');
+                    option.value = destination.id;
+                    option.textContent = destination.name;
+                    selectElement.appendChild(option);
+                });
+            }        })
+        .catch(error => {
+            console.warn('Failed to load destinations:', error);
+        });
+}
+
+/**
+ * Utility function to get Google Maps API key from meta tag
+ * This function is used by tests and other components that need to access the API key
+ * @returns {string|null} The Google Maps API key or null if not found
+ */
+function getGoogleMapsApiKey() {
+    const metaTag = document.querySelector('meta[name="google-maps-api-key"]');
+    return metaTag ? metaTag.getAttribute('content') : null;
 }

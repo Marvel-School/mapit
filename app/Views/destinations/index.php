@@ -77,7 +77,7 @@
                                             <?php if (!empty($destination['image'])): ?>
                                                 <img src="/images/destinations/<?= htmlspecialchars($destination['image']); ?>" class="card-img-top destination-img" alt="<?= htmlspecialchars($destination['name']); ?>">
                                             <?php else: ?>
-                                                <img src="/images/destination-placeholder.jpg" class="card-img-top destination-img" alt="<?= htmlspecialchars($destination['name']); ?>">
+                                                <img src="/images/destination-placeholder.svg" class="card-img-top destination-img" alt="<?= htmlspecialchars($destination['name']); ?>">
                                             <?php endif; ?>
                                             
                                             <?php if ($destination['visited']): ?>
@@ -310,21 +310,27 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Check if Google Maps API is loaded
-    if (typeof google === 'undefined' || typeof google.maps === 'undefined') {
-        console.error('Google Maps API not loaded');
-        const mapContainer = document.getElementById('destinations-map');
-        if (mapContainer) {
-            mapContainer.innerHTML = '<div class="alert alert-warning">Map could not be loaded. Google Maps API key may be missing.</div>';
-        }
-        return;
+    // Check if Google Maps is already loaded, otherwise wait for callback
+    if (typeof google !== 'undefined' && google.maps) {
+        initializeDestinationsPage();
+    } else {
+        // Add to callback queue for when Google Maps loads
+        window.googleMapsCallbacks = window.googleMapsCallbacks || [];
+        window.googleMapsCallbacks.push(initializeDestinationsPage);
     }
     
-    // Initialize the map
-    initDestinationsMap();
+    function initializeDestinationsPage() {
+        // Initialize the map
+        initDestinationsMap();
+        
+        // Initialize quick destination create functionality
+        initializeQuickDestinationCreate();
+        
+        // Setup other page functionality
+        setupPageControls();
+    }
     
-    // Initialize quick destination create functionality
-    initializeQuickDestinationCreate();
+    function setupPageControls() {
     
     // Setup delete modal
     const deleteModal = document.getElementById('deleteModal');
@@ -401,10 +407,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             });
             
-            cards.forEach(card => container.appendChild(card));
-        });
+            cards.forEach(card => container.appendChild(card));        });
     }
-      // Function to initialize the map with user's destinations    function initDestinationsMap() {
+    
+    // Function to initialize the map with user's destinations
+    function initDestinationsMap() {
         const mapContainer = document.getElementById('destinations-map');
         
         if (!mapContainer) {
@@ -429,13 +436,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 return;
             }
-            
-            window.destinationsMap = new google.maps.Map(mapContainer, {
+              window.destinationsMap = new google.maps.Map(mapContainer, {
                 zoom: 2,
                 center: {lat: 20, lng: 0},
                 mapTypeId: 'terrain',
                 mapTypeControl: false,
-                streetViewControl: false
+                streetViewControl: false,
+                mapId: 'MAPIT_DESTINATIONS_INDEX_MAP'
             });
               // Use the destinations data passed from PHP instead of making an AJAX call
             const userDestinations = <?= json_encode($userDestinations ?? []); ?>;
@@ -455,9 +462,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
             `;
               // Log the error (server logging removed for performance)
-            console.error('Error initializing destinations map:', error.message);
-        }
-    }    // Function to add destinations to the map (make it globally accessible)
+            console.error('Error initializing destinations map:', error.message);        }
+    }
+    
+    // Function to add destinations to the map (make it globally accessible)
     window.addDestinationsToMap = function addDestinationsToMap(map, destinations) {
         const bounds = new google.maps.LatLngBounds();
         const visitedIcon = {
@@ -589,14 +597,13 @@ function updateStatus(id, visited) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            window.location.reload();
-        } else {
+            window.location.reload();        } else {
             alert('Failed to update destination status');
-        }
-    })
+        }    })
     .catch(error => {
-        console.error('Error updating status:', error);
         alert('An error occurred while updating the destination status');
     });
 }
+    } // End setupPageControls function
+}); // End DOMContentLoaded
 </script>

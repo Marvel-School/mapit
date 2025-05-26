@@ -204,33 +204,35 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Check if Google Maps API is loaded
-    if (typeof google === 'undefined' || typeof google.maps === 'undefined') {
-        console.error('Google Maps API not loaded');
-        const mapContainer = document.getElementById('travel-map');
-        if (mapContainer) {
-            mapContainer.innerHTML = '<div class="alert alert-warning">Map could not be loaded. Google Maps API key may be missing.</div>';
-        }
-        return;
+    // Check if Google Maps is already loaded, otherwise wait for callback
+    if (typeof google !== 'undefined' && google.maps) {
+        initializeDashboardMap();
+    } else {
+        // Add to callback queue for when Google Maps loads
+        window.googleMapsCallbacks = window.googleMapsCallbacks || [];
+        window.googleMapsCallbacks.push(initializeDashboardMap);
     }
-      // Initialize the map
-    initTravelMap();
     
-    // Initialize quick destination create functionality
-    initializeQuickDestinationCreate();
+    function initializeDashboardMap() {
+        // Initialize the map
+        initTravelMap();
+        
+        // Initialize quick destination create functionality
+        initializeQuickDestinationCreate();
+    }
     
     // Function to initialize the map with user's destinations
     function initTravelMap() {
         const mapContainer = document.getElementById('travel-map');
         
         if (!mapContainer) return;
-        
-        window.travelMap = new google.maps.Map(mapContainer, {
+          window.travelMap = new google.maps.Map(mapContainer, {
             zoom: 2,
             center: {lat: 20, lng: 0},
             mapTypeId: 'terrain',
             mapTypeControl: false,
-            streetViewControl: false
+            streetViewControl: false,
+            mapId: 'MAPIT_DASHBOARD_MAP'
         });
         
         // Use the destinations data passed from PHP instead of making an AJAX call
@@ -242,7 +244,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }    // Function to add destinations to the map
     function addDestinationsToMap(map, destinations) {
         if (!destinations || destinations.length === 0) {
-            console.log('No destinations to display on the map');
             return;
         }
         

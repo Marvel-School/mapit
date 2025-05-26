@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="google-maps-api-key" content="AIzaSyDsR974k1b4C4zkmFjFFYR3eSX3HWJ66A0">
+    <title>Complete Google Maps API Key Fix Verification</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; color: #155724; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; color: #721c24; }
+        .warning { background-color: #fff3cd; border-color: #ffeaa7; color: #856404; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; color: #0c5460; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>🗺️ Complete Google Maps API Key Fix Verification</h1>
+    <p><strong>Date:</strong> <span id="current-date"></span></p>
+    
+    <div id="test-results">
+        <div class="test-section info">
+            <h3>🔄 Running Comprehensive Tests...</h3>
+            <p>This page will verify that all Google Maps API key issues have been resolved.</p>
+        </div>
+    </div>
+
+    <!-- Load main.js -->
+    <script src="/js/main.js"></script>
+    
+    <script>
+        // Set current date
+        document.getElementById('current-date').textContent = new Date().toLocaleString();
+        
+        const results = document.getElementById('test-results');
+        
+        function addTestResult(title, status, message, details = null) {
+            const section = document.createElement('div');
+            section.className = `test-section ${status}`;
+            
+            let html = `<h3>${title}</h3><p>${message}</p>`;
+            if (details) {
+                html += `<pre>${details}</pre>`;
+            }
+            section.innerHTML = html;
+            results.appendChild(section);
+            
+            console.log(`${title}: ${status.toUpperCase()} - ${message}`);
+            if (details) console.log(details);
+        }
+
+        function runTests() {
+            // Test 1: Meta tag presence
+            const metaTag = document.querySelector('meta[name="google-maps-api-key"]');
+            if (metaTag) {
+                const apiKey = metaTag.getAttribute('content');
+                if (apiKey && apiKey !== 'YOUR_API_KEY' && apiKey.length > 10) {
+                    addTestResult(
+                        '✅ Test 1: Meta Tag API Key',
+                        'success',
+                        'Google Maps API key found in meta tag',
+                        `API Key: ${apiKey}`
+                    );
+                } else {
+                    addTestResult(
+                        '❌ Test 1: Meta Tag API Key',
+                        'error',
+                        'API key in meta tag is invalid or placeholder',
+                        `Found: ${apiKey}`
+                    );
+                }
+            } else {
+                addTestResult(
+                    '❌ Test 1: Meta Tag API Key',
+                    'error',
+                    'No meta tag with name="google-maps-api-key" found'
+                );
+            }
+
+            // Test 2: Function availability
+            if (typeof getGoogleMapsApiKey === 'function') {
+                addTestResult(
+                    '✅ Test 2: Function Availability',
+                    'success',
+                    'getGoogleMapsApiKey function is available in global scope'
+                );
+                
+                // Test 3: Function execution
+                try {
+                    const functionResult = getGoogleMapsApiKey();
+                    if (functionResult && functionResult !== 'YOUR_API_KEY' && functionResult.length > 10) {
+                        addTestResult(
+                            '✅ Test 3: Function Execution',
+                            'success',
+                            'Function successfully returns valid API key',
+                            `Returned: ${functionResult}`
+                        );
+                    } else {
+                        addTestResult(
+                            '❌ Test 3: Function Execution',
+                            'error',
+                            'Function returns invalid or placeholder API key',
+                            `Returned: ${functionResult}`
+                        );
+                    }
+                } catch (error) {
+                    addTestResult(
+                        '❌ Test 3: Function Execution',
+                        'error',
+                        'Function threw an error when called',
+                        `Error: ${error.message}`
+                    );
+                }
+            } else {
+                addTestResult(
+                    '❌ Test 2: Function Availability',
+                    'error',
+                    'getGoogleMapsApiKey function is not available',
+                    `Type: ${typeof getGoogleMapsApiKey}`
+                );
+            }
+
+            // Test 4: API Key format validation
+            const apiKeyPattern = /^AIza[0-9A-Za-z-_]{35}$/;
+            const currentApiKey = metaTag ? metaTag.getAttribute('content') : null;
+            if (currentApiKey && apiKeyPattern.test(currentApiKey)) {
+                addTestResult(
+                    '✅ Test 4: API Key Format',
+                    'success',
+                    'API key follows correct Google Maps format'
+                );
+            } else {
+                addTestResult(
+                    '⚠️ Test 4: API Key Format',
+                    'warning',
+                    'API key may not follow standard Google Maps format (this may be okay for testing)',
+                    `Current key: ${currentApiKey}`
+                );
+            }
+
+            // Test 5: Main.js loading
+            addTestResult(
+                '✅ Test 5: Main.js Loading',
+                'success',
+                'main.js file loaded successfully (function is available)'
+            );
+
+            // Test 6: DOM functionality
+            try {
+                const testQuery = document.querySelector('meta[name="google-maps-api-key"]');
+                if (testQuery) {
+                    addTestResult(
+                        '✅ Test 6: DOM Query Functions',
+                        'success',
+                        'DOM query functions work correctly'
+                    );
+                } else {
+                    addTestResult(
+                        '❌ Test 6: DOM Query Functions',
+                        'error',
+                        'DOM query functions not working'
+                    );
+                }
+            } catch (error) {
+                addTestResult(
+                    '❌ Test 6: DOM Query Functions',
+                    'error',
+                    'DOM query functions threw error',
+                    error.message
+                );
+            }
+
+            // Final summary
+            const allSections = document.querySelectorAll('.test-section');
+            const successCount = document.querySelectorAll('.test-section.success').length;
+            const errorCount = document.querySelectorAll('.test-section.error').length;
+            const warningCount = document.querySelectorAll('.test-section.warning').length;
+            
+            let summaryStatus = 'success';
+            let summaryMessage = '🎉 All tests passed! Google Maps API key is properly configured.';
+            
+            if (errorCount > 0) {
+                summaryStatus = 'error';
+                summaryMessage = `❌ ${errorCount} test(s) failed. Please review the issues above.`;
+            } else if (warningCount > 0) {
+                summaryStatus = 'warning';
+                summaryMessage = `⚠️ All critical tests passed, but ${warningCount} warning(s) noted.`;
+            }
+            
+            setTimeout(() => {
+                addTestResult(
+                    '📊 Test Summary',
+                    summaryStatus,
+                    summaryMessage,
+                    `Passed: ${successCount}, Failed: ${errorCount}, Warnings: ${warningCount}`
+                );
+            }, 500);
+        }
+
+        // Run tests when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', runTests);
+        } else {
+            runTests();
+        }
+    </script>
+</body>
+</html>

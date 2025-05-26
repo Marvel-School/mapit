@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quick API Key Function Test</title>
+    <meta name="google-maps-api-key" content="AIzaSyDsR974k1b4C4zkmFjFFYR3eSX3HWJ66A0">
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .result { padding: 15px; margin: 10px 0; border-radius: 5px; }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+    <h1>Quick getGoogleMapsApiKey() Function Test</h1>
+    
+    <div id="result" class="result">Testing...</div>
+    
+    <script src="/js/main.js"></script>
+    <script>
+        window.addEventListener('load', function() {
+            const resultDiv = document.getElementById('result');
+            
+            console.log('Window loaded, testing function...');
+            console.log('typeof getGoogleMapsApiKey:', typeof getGoogleMapsApiKey);
+            
+            if (typeof getGoogleMapsApiKey === 'function') {
+                const apiKey = getGoogleMapsApiKey();
+                console.log('Function result:', apiKey);
+                
+                if (apiKey) {
+                    resultDiv.innerHTML = `✅ SUCCESS: Function found and returned API key: <code>${apiKey.substring(0, 15)}...</code>`;
+                    resultDiv.className = 'result success';
+                } else {
+                    resultDiv.innerHTML = '❌ ERROR: Function found but returned null/empty';
+                    resultDiv.className = 'result error';
+                }
+            } else {
+                resultDiv.innerHTML = '❌ ERROR: getGoogleMapsApiKey function not found';
+                resultDiv.className = 'result error';
+            }
+        });
+    </script>
+</body>
+</html>

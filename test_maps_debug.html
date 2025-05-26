@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MapIt - Debug Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; color: #155724; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; color: #721c24; }
+        .warning { background-color: #fff3cd; border-color: #ffeaa7; color: #856404; }
+        #map { height: 300px; width: 100%; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <h1>MapIt - Google Maps Loading Debug Test</h1>
+    
+    <div class="test-section" id="api-test">
+        <h3>Google Maps API Test</h3>
+        <p id="api-status">Testing Google Maps API availability...</p>
+    </div>
+    
+    <div class="test-section" id="scripts-test">
+        <h3>Script Loading Test</h3>
+        <p id="scripts-status">Testing required scripts...</p>
+    </div>
+    
+    <div class="test-section">
+        <h3>Map Initialization Test</h3>
+        <div id="map"></div>
+        <p id="map-status">Initializing map...</p>
+    </div>
+    
+    <!-- Include the same scripts as the main application -->
+    <script src="/js/main.js"></script>
+    <script src="/js/destinations-map.js"></script>
+    <script src="/js/docker-maps-loader.js"></script>
+    
+    <script>
+        let testResults = {
+            apiLoaded: false,
+            scriptsLoaded: false,
+            mapInitialized: false,
+            functionsAvailable: false
+        };
+        
+        function updateTestStatus(testId, status, message, type = 'success') {
+            const element = document.getElementById(testId);
+            element.textContent = message;
+            element.parentElement.className = `test-section ${type}`;
+        }
+        
+        function runTests() {
+            console.log('Starting MapIt debug tests...');
+            
+            // Test 1: Google Maps API
+            if (typeof google !== 'undefined' && google.maps) {
+                testResults.apiLoaded = true;
+                updateTestStatus('api-status', true, '✅ Google Maps API loaded successfully', 'success');
+            } else {
+                updateTestStatus('api-status', false, '❌ Google Maps API not loaded', 'error');
+            }
+            
+            // Test 2: Required scripts and functions
+            const requiredFunctions = [
+                'initializeDestinationSelectors',
+                'initDestinationsMap',
+                'waitForGoogleMaps'
+            ];
+            
+            let missingFunctions = [];
+            requiredFunctions.forEach(funcName => {
+                if (typeof window[funcName] === 'undefined') {
+                    missingFunctions.push(funcName);
+                }
+            });
+            
+            if (missingFunctions.length === 0) {
+                testResults.functionsAvailable = true;
+                updateTestStatus('scripts-status', true, '✅ All required functions available', 'success');
+            } else {
+                updateTestStatus('scripts-status', false, `❌ Missing functions: ${missingFunctions.join(', ')}`, 'error');
+            }
+            
+            // Test 3: Map initialization
+            if (testResults.apiLoaded) {
+                try {
+                    const map = new google.maps.Map(document.getElementById('map'), {
+                        zoom: 10,
+                        center: { lat: -34.397, lng: 150.644 }
+                    });
+                    testResults.mapInitialized = true;
+                    updateTestStatus('map-status', true, '✅ Map initialized successfully', 'success');
+                } catch (error) {
+                    updateTestStatus('map-status', false, `❌ Map initialization failed: ${error.message}`, 'error');
+                }
+            } else {
+                updateTestStatus('map-status', false, '⚠️ Cannot test map - API not loaded', 'warning');
+            }
+            
+            // Summary
+            console.log('Test Results:', testResults);
+        }
+        
+        // Wait for page load then run tests
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', function() {
+                setTimeout(runTests, 1000); // Give scripts time to load
+            });
+        } else {
+            setTimeout(runTests, 1000);
+        }
+    </script>
+      <meta name="google-maps-api-key" content="AIzaSyDsR974k1b4C4zkmFjFFYR3eSX3HWJ66A0">
+    <!-- Load Google Maps API -->
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDsR974k1b4C4zkmFjFFYR3eSX3HWJ66A0&libraries=places,marker&callback=runTests"></script>
+</body>
+</html>

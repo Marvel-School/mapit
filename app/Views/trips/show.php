@@ -67,7 +67,7 @@
                                                                     alt="<?= htmlspecialchars($destination['name']); ?>" 
                                                                     class="img-fluid rounded mb-3 mb-md-0 timeline-img">
                                                             <?php else: ?>
-                                                                <img src="/images/destination-placeholder.jpg" 
+                                                                <img src="/images/destination-placeholder.svg" 
                                                                     alt="<?= htmlspecialchars($destination['name']); ?>" 
                                                                     class="img-fluid rounded mb-3 mb-md-0 timeline-img">
                                                             <?php endif; ?>
@@ -335,12 +335,12 @@ document.addEventListener('DOMContentLoaded', function() {
     function initTripMap() {
         const mapElement = document.getElementById('trip-map');
         if (!mapElement) return;
-        
-        const map = new google.maps.Map(mapElement, {
+          const map = new google.maps.Map(mapElement, {
             center: { lat: 20, lng: 0 },
             zoom: 2,
             mapTypeId: 'terrain',
-            mapTypeControl: false
+            mapTypeControl: false,
+            mapId: 'MAPIT_TRIP_SHOW_MAP'
         });
         
         const directionsService = new google.maps.DirectionsService();

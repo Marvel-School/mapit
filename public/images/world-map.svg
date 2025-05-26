@@ -1,0 +1,13 @@
+<svg width="400" height="200" xmlns="http://www.w3.org/2000/svg">
+  <rect width="400" height="200" fill="#f8f9fa"/>
+  <g>
+    <!-- Simplified world map outline -->
+    <path d="M50 100 Q80 80, 120 90 Q160 95, 200 85 Q240 80, 280 90 Q320 95, 350 100 Q320 120, 280 110 Q240 120, 200 115 Q160 120, 120 110 Q80 120, 50 100 Z" fill="#3498db" opacity="0.6"/>
+    <path d="M70 120 Q100 110, 140 115 Q180 120, 220 115 Q260 110, 290 120 Q260 140, 220 135 Q180 140, 140 135 Q100 140, 70 120 Z" fill="#2ecc71" opacity="0.6"/>
+    <circle cx="100" cy="100" r="3" fill="#e74c3c"/>
+    <circle cx="180" cy="95" r="3" fill="#e74c3c"/>
+    <circle cx="250" cy="105" r="3" fill="#e74c3c"/>
+    <circle cx="320" cy="100" r="3" fill="#e74c3c"/>
+  </g>
+  <text x="200" y="180" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" fill="#34495e">Explore the World</text>
+</svg>

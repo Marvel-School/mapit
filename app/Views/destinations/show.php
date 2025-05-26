@@ -23,7 +23,7 @@
                             <?php if (!empty($destination['image'])): ?>
                                 <img src="/images/destinations/<?= htmlspecialchars($destination['image']); ?>" alt="<?= htmlspecialchars($destination['name']); ?>" class="img-fluid rounded mb-4 destination-detail-img">
                             <?php else: ?>
-                                <img src="/images/destination-placeholder.jpg" alt="<?= htmlspecialchars($destination['name']); ?>" class="img-fluid rounded mb-4 destination-detail-img">
+                                <img src="/images/destination-placeholder.svg" alt="<?= htmlspecialchars($destination['name']); ?>" class="img-fluid rounded mb-4 destination-detail-img">
                             <?php endif; ?>
                         </div>
                         <div class="col-md-4">                            <div class="p-3 bg-light rounded mb-4">
@@ -119,7 +119,7 @@
                                             <?php if (!empty($nearby['image'])): ?>
                                                 <img src="/images/destinations/<?= htmlspecialchars($nearby['image']); ?>" class="card-img-top nearby-img" alt="<?= htmlspecialchars($nearby['name']); ?>">
                                             <?php else: ?>
-                                                <img src="/images/destination-placeholder.jpg" class="card-img-top nearby-img" alt="<?= htmlspecialchars($nearby['name']); ?>">
+                                                <img src="/images/destination-placeholder.svg" class="card-img-top nearby-img" alt="<?= htmlspecialchars($nearby['name']); ?>">
                                             <?php endif; ?>
                                             
                                             <div class="card-body">                                                <h5 class="card-title"><?= htmlspecialchars($nearby['name']); ?></h5>
@@ -241,12 +241,12 @@ document.addEventListener('DOMContentLoaded', function() {
         
         const lat = <?= $destination['latitude']; ?>;
         const lng = <?= $destination['longitude']; ?>;
-        
-        const map = new google.maps.Map(mapElement, {
+          const map = new google.maps.Map(mapElement, {
             center: { lat, lng },
             zoom: 10,
             mapTypeId: 'terrain',
-            mapTypeControl: false
+            mapTypeControl: false,
+            mapId: 'MAPIT_DESTINATION_SHOW_MAP'
         });
           // Create marker for the destination with AdvancedMarkerElement or fallback
         let marker;

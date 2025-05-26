@@ -3,7 +3,6 @@
 namespace App\Controllers\Api;
 
 use App\Core\Controller;
-use App\Core\Response;
 use App\Core\Logger;
 
 class EnvironmentController extends Controller
@@ -23,7 +22,7 @@ class EnvironmentController extends Controller
         $serverName = $_SERVER['SERVER_NAME'] ?? '';
         
         // Return data as JSON
-        return Response::json([
+        $this->json([
             'isDocker' => $isDocker,
             'serverIps' => $serverIps,
             'hostname' => $hostname,

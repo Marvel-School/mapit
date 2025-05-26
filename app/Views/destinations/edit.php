@@ -166,11 +166,11 @@ document.addEventListener('DOMContentLoaded', function() {
         // Default to a central position if no coordinates are set
         let initialLat = latInput.value ? parseFloat(latInput.value) : 20;
         let initialLng = lngInput.value ? parseFloat(lngInput.value) : 0;
-        
-        map = new google.maps.Map(mapElement, {
+          map = new google.maps.Map(mapElement, {
             center: { lat: initialLat, lng: initialLng },
             zoom: latInput.value ? 8 : 2,
-            mapTypeId: 'terrain'
+            mapTypeId: 'terrain',
+            mapId: 'MAPIT_DESTINATION_EDIT_MAP'
         });
         
         // Add marker if coordinates are already set
@@ -198,9 +198,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             const place = places[0];
-            
-            if (!place.geometry || !place.geometry.location) {
-                console.log("Returned place contains no geometry");
+              if (!place.geometry || !place.geometry.location) {
                 return;
             }
             

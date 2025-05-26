@@ -404,30 +404,74 @@ document.addEventListener('DOMContentLoaded', function() {
             cards.forEach(card => container.appendChild(card));
         });
     }
-      // Function to initialize the map with user's destinations
-    function initDestinationsMap() {
+      // Function to initialize the map with user's destinations    function initDestinationsMap() {
         const mapContainer = document.getElementById('destinations-map');
         
-        if (!mapContainer) return;
+        if (!mapContainer) {
+            console.error('Destinations map container not found');
+            return;
+        }
         
-        window.destinationsMap = new google.maps.Map(mapContainer, {
-            zoom: 2,
-            center: {lat: 20, lng: 0},
-            mapTypeId: 'terrain',
-            mapTypeControl: false,
-            streetViewControl: false
-        });
-        
-        // Use the destinations data passed from PHP instead of making an AJAX call
-        const userDestinations = <?= json_encode($userDestinations ?? []); ?>;
-        const publicDestinations = <?= json_encode($publicDestinations ?? []); ?>;
-        
-        // Combine user and public destinations for the map
-        const allDestinations = [...userDestinations, ...publicDestinations];
-        addDestinationsToMap(window.destinationsMap, allDestinations);
-        
-        // Enable interactive map clicking for adding destinations
-        enableInteractiveMapClicking(window.destinationsMap);
+        try {
+            // Check if Google Maps is available
+            if (typeof google === 'undefined' || typeof google.maps === 'undefined') {
+                console.error('Google Maps API not loaded');
+                mapContainer.innerHTML = `
+                    <div class="alert alert-danger">
+                        <h5>Map could not be loaded. Google Maps API is not available.</h5>
+                        <p>Please check your internet connection and try again.</p>
+                        <button class="btn btn-sm btn-danger mt-2" onclick="window.location.reload()">Reload Page</button>
+                    </div>
+                `;
+                
+                // Try to load Google Maps
+                if (typeof waitForGoogleMaps === 'function') {
+                    console.log('Attempting to load Google Maps API from initDestinationsMap...');
+                    waitForGoogleMaps();
+                }
+                return;
+            }
+            
+            console.log('Creating destinations map');
+            window.destinationsMap = new google.maps.Map(mapContainer, {
+                zoom: 2,
+                center: {lat: 20, lng: 0},
+                mapTypeId: 'terrain',
+                mapTypeControl: false,
+                streetViewControl: false
+            });
+            
+            console.log('Destinations map created successfully');
+            
+            // Use the destinations data passed from PHP instead of making an AJAX call
+            const userDestinations = <?= json_encode($userDestinations ?? []); ?>;
+            const publicDestinations = <?= json_encode($publicDestinations ?? []); ?>;
+            
+            console.log(`Loaded ${userDestinations.length} user destinations and ${publicDestinations.length} public destinations`);
+            
+            // Combine user and public destinations for the map
+            const allDestinations = [...userDestinations, ...publicDestinations];
+            addDestinationsToMap(window.destinationsMap, allDestinations);
+            
+            // Enable interactive map clicking for adding destinations
+            enableInteractiveMapClicking(window.destinationsMap);
+            
+            console.log('Destinations map initialization complete');
+        } catch (error) {
+            console.error('Error initializing destinations map:', error);
+            mapContainer.innerHTML = `
+                <div class="alert alert-danger">
+                    <h5>Error initializing map</h5>
+                    <p>${error.message || 'Unknown error'}</p>
+                    <button class="btn btn-sm btn-danger mt-2" onclick="window.location.reload()">Reload Page</button>
+                </div>
+            `;
+            
+            // Log the error to server
+            if (typeof logToServer === 'function') {
+                logToServer('error', 'Error initializing destinations map: ' + error.message);
+            }
+        }
     }
       // Function to add destinations to the map
     function addDestinationsToMap(map, destinations) {

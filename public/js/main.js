@@ -10,17 +10,106 @@ let infoWindow;
 let quickCreateMarker = null;
 let selectedPosition = null;
 let googleMapsInitialized = false;
+let googleMapsLoadAttempts = 0;
+const MAX_LOAD_ATTEMPTS = 3;
 
-// Google Maps initialization callback
+// Google Maps initialization callback - Called when the script loads
 function initializeGoogleMaps() {
+    // Check if we actually have access to the Google Maps API
+    if (typeof google === 'undefined' || typeof google.maps === 'undefined') {
+        console.error('Google Maps API not available in initialization callback');
+        logGoogleMapsStatus('API_UNAVAILABLE_IN_CALLBACK');
+        waitForGoogleMaps(); // Try to reload
+        return;
+    }
+    
+    // Clear any pending timeouts
+    if (window.googleMapsTimeouts && window.googleMapsTimeouts.length) {
+        window.googleMapsTimeouts.forEach(clearTimeout);
+        window.googleMapsTimeouts = [];
+    }
+    
     googleMapsInitialized = true;
     console.log('Google Maps API loaded successfully');
     
+    // Check for API key restrictions
+    const apiKey = document.querySelector('meta[name="google-maps-api-key"]')?.getAttribute('content');
+    if (apiKey) {
+        console.log('Maps API key is present in meta tag');
+    }
+    
     // Initialize maps if DOM is ready
     if (document.readyState === 'loading') {
+        console.log('DOM still loading, waiting for DOMContentLoaded event');
         document.addEventListener('DOMContentLoaded', initializeMapElements);
     } else {
+        console.log('DOM is ready, initializing map elements');
         initializeMapElements();
+    }
+    
+    // Trigger any callbacks waiting for Google Maps to load
+    if (window.googleMapsCallbacks && Array.isArray(window.googleMapsCallbacks)) {
+        console.log(`Executing ${window.googleMapsCallbacks.length} registered callbacks`);
+        window.googleMapsCallbacks.forEach(callback => {
+            try {
+                callback();
+            } catch (error) {
+                console.error('Error in Google Maps callback:', error);
+            }
+        });
+    }
+    
+    // Log successful initialization
+    logGoogleMapsStatus('INITIALIZED_SUCCESSFULLY');
+    
+    // Add a delayed check for map instances
+    setTimeout(() => {
+        const mapContainers = document.querySelectorAll('[id$="-map"]');
+        console.log(`Found ${mapContainers.length} potential map containers`);
+    }, 1000);
+}
+
+// Error handler for Google Maps API loading
+function gm_authFailure() {
+    console.error('Google Maps API authentication failed. Check your API key.');
+    
+    // Log details about the API key
+    const apiKey = document.querySelector('meta[name="google-maps-api-key"]')?.getAttribute('content');
+    if (apiKey) {
+        console.log('API Key exists in meta tag: ' + apiKey.substring(0, 5) + '...');
+    } else {
+        console.error('No API Key found in meta tag');
+    }
+    
+    // Check for API key restrictions
+    console.warn('Your Google Maps API key may have domain or IP restrictions');
+    console.warn('Current URL:', window.location.href);
+    console.warn('Referrer:', document.referrer);
+    
+    // Show error message on all map containers
+    const mapContainers = document.querySelectorAll('[id$="-map"]');
+    mapContainers.forEach(container => {
+        container.innerHTML = `
+            <div class="alert alert-danger">
+                <h5>Map could not be loaded. Google Maps API key may be missing.</h5>
+                <p>Please check that your API key is valid and properly configured.</p>
+            </div>
+        `;
+    });
+    
+    // Log the authentication failure
+    logGoogleMapsStatus('AUTH_FAILURE');
+    
+    // Try reloading with a new key if there's a fallback
+    const fallbackApiKey = window.FALLBACK_MAPS_API_KEY;
+    if (fallbackApiKey && fallbackApiKey !== apiKey) {
+        console.log('Attempting to reload with fallback API key');
+        
+        const script = document.createElement('script');
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${fallbackApiKey}&libraries=places,marker&callback=initializeGoogleMaps&v=weekly`;
+        script.async = true;
+        script.defer = true;
+        document.body.appendChild(script);
     }
 }
 
@@ -48,6 +137,110 @@ function initializeMapElements() {
     const destinationsMap = document.getElementById('destinations-map');
     if (destinationsMap) {
         initDestinationsMap();
+    }
+}
+
+// Function to check if Google Maps is loaded and try to load it if not
+function waitForGoogleMaps() {
+    if (typeof google !== 'undefined' && google.maps) {
+        // Google Maps is already loaded
+        console.log('Google Maps is already available in global scope');
+        return;
+    }
+    
+    // If we've tried too many times, show an error
+    if (googleMapsLoadAttempts >= MAX_LOAD_ATTEMPTS) {
+        console.error('Failed to load Google Maps after multiple attempts');
+        const mapContainers = document.querySelectorAll('[id$="-map"]');
+        mapContainers.forEach(container => {
+            container.innerHTML = '<div class="alert alert-danger">Failed to load Google Maps API after multiple attempts. Please refresh the page.</div>';
+        });
+        
+        // Log details about the failure for debugging
+        logGoogleMapsStatus('FAILED_AFTER_RETRIES');
+        return;
+    }
+    
+    console.log('Attempting to load Google Maps API... (Attempt ' + (googleMapsLoadAttempts + 1) + ' of ' + MAX_LOAD_ATTEMPTS + ')');
+    googleMapsLoadAttempts++;
+    
+    // Create a new script tag to load Google Maps
+    const apiKey = document.querySelector('meta[name="google-maps-api-key"]')?.getAttribute('content');
+    if (!apiKey) {
+        console.error('No Google Maps API key found in meta tag');
+        logGoogleMapsStatus('NO_API_KEY');
+        return;
+    }
+    
+    console.log('Using API key from meta tag: ' + apiKey.substring(0, 5) + '...');
+    
+    const script = document.createElement('script');
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,marker&callback=initializeGoogleMaps&v=weekly`;
+    script.async = true;
+    script.defer = true;
+    script.onerror = (e) => {
+        console.error(`Failed to load Google Maps API (attempt ${googleMapsLoadAttempts})`, e);
+        logGoogleMapsStatus('SCRIPT_LOAD_ERROR');
+        setTimeout(waitForGoogleMaps, 2000); // Try again after 2 seconds
+    };
+    
+    // Add a timeout to detect if the script loads but callback isn't called
+    const timeoutId = setTimeout(() => {
+        if (!googleMapsInitialized) {
+            console.warn('Google Maps script loaded but not initialized after timeout');
+            logGoogleMapsStatus('LOADED_NOT_INITIALIZED');
+        }
+    }, 5000);
+    
+    // Store the timeout ID for cleanup
+    window.googleMapsTimeouts = window.googleMapsTimeouts || [];
+    window.googleMapsTimeouts.push(timeoutId);
+    
+    document.body.appendChild(script);
+}
+
+// Log details about Google Maps status for debugging
+function logGoogleMapsStatus(status) {
+    try {
+        // Gather diagnostic data
+        const diagnosticData = {
+            status: status,
+            url: window.location.href,
+            userAgent: navigator.userAgent,
+            googleDefined: typeof google !== 'undefined',
+            mapsDefined: typeof google !== 'undefined' && typeof google.maps !== 'undefined',
+            apiKey: document.querySelector('meta[name="google-maps-api-key"]')?.getAttribute('content')?.substring(0, 5) + '...',
+            scriptTags: Array.from(document.scripts)
+                .filter(s => s.src && s.src.includes('maps.googleapis.com'))
+                .map(s => s.src)
+        };
+        
+        console.group('Google Maps Diagnostics');
+        console.log('Status:', status);
+        console.log('Diagnostics:', diagnosticData);
+        console.groupEnd();
+        
+        // Send to server if debug logging is enabled
+        if (window.MAPIT_DEBUG_MODE) {
+            fetch('/api/debug/log', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    level: 'error',
+                    message: 'Google Maps Status: ' + status,
+                    url: window.location.href,
+                    userAgent: navigator.userAgent,
+                    context: JSON.stringify(diagnosticData),
+                    timestamp: new Date().toISOString()
+                })
+            }).catch(err => {
+                // Silent fail
+            });
+        }
+    } catch (e) {
+        // Silent fail - we don't want errors in our error handler
     }
 }
 
@@ -80,11 +273,26 @@ document.addEventListener('DOMContentLoaded', () => {
     const forms = document.querySelectorAll('.needs-validation');
     if (forms.length > 0) {
         initializeFormValidation(forms);
-    }
-
-    // Initialize map elements if Google Maps is already loaded
+    }    // Initialize map elements if Google Maps is already loaded
     if (googleMapsInitialized) {
         initializeMapElements();
+    } else {
+        console.log('Google Maps not initialized yet on page load, waiting...');
+        // Check if Google Maps is loaded after a short delay
+        setTimeout(() => {
+            if (!googleMapsInitialized) {
+                console.log('Google Maps not initialized after delay, attempting to load...');
+                waitForGoogleMaps();
+            }
+        }, 1000);
+        
+        // Additional safety check after a longer delay
+        setTimeout(() => {
+            if (!googleMapsInitialized && googleMapsLoadAttempts === 0) {
+                console.log('Google Maps still not initialized after longer delay, forcing load attempt...');
+                waitForGoogleMaps();
+            }
+        }, 3000);
     }
 
     // Handle status toggle in destination form

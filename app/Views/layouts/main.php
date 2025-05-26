@@ -9,10 +9,10 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     
     <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/css/style.css">
     
-    <!-- Custom CSS -->
-    <link rel="stylesheet" href="/css/style.css">    <!-- Google Maps API -->
+    <!-- Google Maps API Key for JS Fallback -->
     <?php
     $apiKey = $googleMapsApiKey ?? '';
     if (empty($apiKey)) {
@@ -21,7 +21,7 @@
         }
     }
     ?>
-    <script async defer src="https://maps.googleapis.com/maps/api/js?key=<?= $apiKey; ?>&libraries=places,marker&callback=initializeGoogleMaps"></script>
+    <meta name="google-maps-api-key" content="<?= htmlspecialchars($apiKey); ?>">
 </head>
 <body>
     <!-- Navigation -->
@@ -159,11 +159,21 @@
             </div>
         </div>
     </footer>
-    
-    <!-- Bootstrap Bundle with Popper -->
+      <!-- Bootstrap Bundle with Popper -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     
     <!-- Custom JS -->
     <script src="/js/main.js"></script>
+  <!-- Maps Debug Script -->
+    <script src="/js/maps-debug.js"></script>
+    
+    <!-- Docker-specific Maps Loader -->
+    <script src="/js/docker-maps-loader.js"></script>
+    
+    <!-- Enhanced Maps Initialization -->
+    <script src="/js/destinations-map.js"></script>
+    
+    <!-- Google Maps API is now loaded by the docker-maps-loader.js script -->
+    <!-- The original script tag has been removed to prevent duplicate loading -->
 </body>
 </html>

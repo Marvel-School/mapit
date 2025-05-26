@@ -88,3 +88,7 @@ $this->post('admin/destinations/{id}/approve', 'Admin\DestinationController', 'a
 $this->post('admin/destinations/{id}/reject', 'Admin\DestinationController', 'reject');
 
 $this->get('admin/logs', 'Admin\LogController', 'index');
+
+// Debug Routes
+$this->post('api/debug/log', 'Api\DebugController', 'log');
+$this->get('api/debug/environment', 'Api\EnvironmentController', 'getInfo');

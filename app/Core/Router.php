@@ -1,0 +1,174 @@
+<?php
+
+namespace App\Core;
+
+class Router
+{
+    protected $routes = [
+        'GET' => [],
+        'POST' => [],
+        'PUT' => [],
+        'DELETE' => []
+    ];
+
+    /**
+     * Register a route for GET requests
+     * 
+     * @param string $uri
+     * @param string $controller
+     * @param string $action
+     * @return void
+     */
+    public function get($uri, $controller, $action)
+    {
+        $this->routes['GET'][$uri] = [
+            'controller' => $controller,
+            'action' => $action
+        ];
+    }
+
+    /**
+     * Register a route for POST requests
+     * 
+     * @param string $uri
+     * @param string $controller
+     * @param string $action
+     * @return void
+     */
+    public function post($uri, $controller, $action)
+    {
+        $this->routes['POST'][$uri] = [
+            'controller' => $controller,
+            'action' => $action
+        ];
+    }
+
+    /**
+     * Register a route for PUT requests
+     * 
+     * @param string $uri
+     * @param string $controller
+     * @param string $action
+     * @return void
+     */
+    public function put($uri, $controller, $action)
+    {
+        $this->routes['PUT'][$uri] = [
+            'controller' => $controller,
+            'action' => $action
+        ];
+    }
+
+    /**
+     * Register a route for DELETE requests
+     * 
+     * @param string $uri
+     * @param string $controller
+     * @param string $action
+     * @return void
+     */
+    public function delete($uri, $controller, $action)
+    {
+        $this->routes['DELETE'][$uri] = [
+            'controller' => $controller,
+            'action' => $action
+        ];
+    }
+
+    /**
+     * Load routes from a file
+     * 
+     * @param string $file
+     * @return void
+     */
+    public function load($file)
+    {
+        require $file;
+    }
+
+    /**
+     * Match the current request to a route
+     * 
+     * @param string $uri
+     * @param string $method
+     * @return array|boolean
+     */
+    public function match($uri, $method)
+    {
+        if (array_key_exists($uri, $this->routes[$method])) {
+            return $this->routes[$method][$uri];
+        }
+
+        // Check for dynamic routes with parameters
+        foreach ($this->routes[$method] as $route => $params) {
+            // Convert route to regex pattern
+            $pattern = '@^' . preg_replace('/\{([a-zA-Z0-9_]+)\}/', '(?<$1>[^/]+)', $route) . '$@';
+            
+            if (preg_match($pattern, $uri, $matches)) {
+                $params['params'] = array_filter($matches, function ($key) {
+                    return !is_numeric($key);
+                }, ARRAY_FILTER_USE_KEY);
+                
+                return $params;
+            }
+        }
+        
+        return false;
+    }
+
+    /**
+     * Dispatch the request to the appropriate controller action
+     * 
+     * @param string $uri
+     * @param string $method
+     * @return void
+     */
+    public function dispatch($uri, $method)
+    {
+        // Remove query strings
+        $uri = $this->removeQueryStringVariables($uri);
+        
+        // Match the route
+        $route = $this->match($uri, $method);
+        
+        if ($route) {
+            $controller = "App\\Controllers\\{$route['controller']}";
+            $action = $route['action'];
+            $params = $route['params'] ?? [];
+            
+            if (class_exists($controller)) {
+                $controller_instance = new $controller();
+                
+                if (method_exists($controller_instance, $action)) {
+                    call_user_func_array([$controller_instance, $action], $params);
+                    return;
+                }
+            }
+        }
+        
+        // Route not found
+        header('HTTP/1.1 404 Not Found');
+        echo '404 Page Not Found';
+    }
+
+    /**
+     * Remove query string variables from the URL
+     * 
+     * @param string $uri
+     * @return string
+     */
+    protected function removeQueryStringVariables($uri)
+    {
+        if ($uri != '') {
+            $parts = explode('?', $uri, 2);
+            
+            if (strpos($parts[0], '=') === false) {
+                $uri = $parts[0];
+            } else {
+                $uri = '';
+            }
+        }
+        
+        return $uri;
+    }
+}

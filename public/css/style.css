@@ -1,0 +1,382 @@
+/* MapIt - Main Stylesheet */
+
+/* 
+* General Styling
+*/
+:root {
+    --primary: #3498db;
+    --primary-dark: #2980b9;
+    --secondary: #e74c3c;
+    --secondary-dark: #c0392b;
+    --success: #2ecc71;
+    --warning: #f39c12;
+    --info: #1abc9c;
+    --dark: #34495e;
+    --light: #f8f9fa;
+    --gray: #95a5a6;
+}
+
+body {
+    font-family: 'Open Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    color: #333;
+    line-height: 1.6;
+}
+
+a {
+    transition: color 0.2s ease-in-out;
+}
+
+.btn {
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+.btn-primary {
+    background-color: var(--primary);
+    border-color: var(--primary);
+}
+
+.btn-primary:hover, .btn-primary:focus {
+    background-color: var(--primary-dark);
+    border-color: var(--primary-dark);
+}
+
+.btn-secondary {
+    background-color: var(--secondary);
+    border-color: var(--secondary);
+}
+
+.btn-secondary:hover, .btn-secondary:focus {
+    background-color: var(--secondary-dark);
+    border-color: var(--secondary-dark);
+}
+
+.card {
+    border-radius: 8px;
+    overflow: hidden;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+}
+
+.card-img-top {
+    height: 200px;
+    object-fit: cover;
+}
+
+/* 
+* Header & Navigation 
+*/
+.navbar-brand {
+    font-weight: 700;
+    font-size: 1.5rem;
+}
+
+.navbar-dark {
+    background-color: var(--dark) !important;
+}
+
+.navbar-dark .navbar-nav .nav-link {
+    color: rgba(255, 255, 255, 0.85);
+    transition: color 0.2s ease;
+}
+
+.navbar-dark .navbar-nav .nav-link:hover {
+    color: white;
+}
+
+.dropdown-menu {
+    border: none;
+    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* 
+* Map Components 
+*/
+.map-container {
+    height: 500px;
+    width: 100%;
+    border-radius: 0 0 8px 8px;
+}
+
+.map-container-sm {
+    height: 300px;
+}
+
+.map-container-lg {
+    height: 600px;
+}
+
+.map-search-box {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 10;
+    width: 300px;
+}
+
+.map-info-window {
+    padding: 0;
+    max-width: 300px;
+}
+
+.map-info-window img {
+    width: 100%;
+    height: 150px;
+    object-fit: cover;
+}
+
+.map-info-window-content {
+    padding: 15px;
+}
+
+/* 
+* Dashboard Stats Cards 
+*/
+.icon-bg {
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+}
+
+/* 
+* Destination Cards 
+*/
+.destination-card {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.destination-card .card-body {
+    flex: 1;
+}
+
+.destination-badge {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    border-radius: 20px;
+    padding: 5px 10px;
+    font-size: 0.7rem;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.destination-badge-visited {
+    background-color: var(--success);
+    color: white;
+}
+
+.destination-badge-wishlist {
+    background-color: var(--warning);
+    color: white;
+}
+
+/* 
+* Trip Timeline 
+*/
+.timeline {
+    position: relative;
+    padding: 0;
+    list-style: none;
+    margin-bottom: 0;
+}
+
+.timeline::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 20px;
+    width: 2px;
+    background-color: #e9ecef;
+}
+
+.timeline-item {
+    position: relative;
+    padding-left: 50px;
+    padding-bottom: 30px;
+}
+
+.timeline-item:last-child {
+    padding-bottom: 0;
+}
+
+.timeline-marker {
+    position: absolute;
+    left: 13px;
+    top: 0;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 2px solid white;
+    background-color: var(--primary);
+    box-shadow: 0 0 0 4px rgba(52, 152, 219, 0.2);
+}
+
+/* 
+* Badge System 
+*/
+.badge-card {
+    text-align: center;
+    padding: 20px 10px;
+}
+
+.badge-icon {
+    width: 80px;
+    height: 80px;
+    margin: 0 auto 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    font-size: 2rem;
+    color: white;
+}
+
+.badge-locked {
+    opacity: 0.4;
+    filter: grayscale(100%);
+}
+
+.badge-unlocked {
+    animation: badge-pulse 2s infinite;
+}
+
+@keyframes badge-pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(52, 152, 219, 0.7);
+    }
+    70% {
+        box-shadow: 0 0 0 10px rgba(52, 152, 219, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(52, 152, 219, 0);
+    }
+}
+
+/* 
+* Forms 
+*/
+.form-control:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 0.25rem rgba(52, 152, 219, 0.25);
+}
+
+.custom-file-upload {
+    cursor: pointer;
+    display: block;
+    padding: 10px;
+    background-color: #f8f9fa;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    text-align: center;
+    transition: all 0.2s ease;
+}
+
+.custom-file-upload:hover {
+    background-color: #e9ecef;
+}
+
+/* 
+* Footer 
+*/
+footer {
+    margin-top: 60px;
+}
+
+footer a {
+    transition: color 0.2s ease;
+}
+
+.social-icons a {
+    display: inline-block;
+    width: 36px;
+    height: 36px;
+    text-align: center;
+    line-height: 36px;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.1);
+    margin-right: 10px;
+    transition: all 0.2s ease;
+}
+
+.social-icons a:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+    transform: translateY(-3px);
+}
+
+/* 
+* Responsive Adjustments 
+*/
+@media (max-width: 768px) {
+    .map-container {
+        height: 300px;
+    }
+    
+    .timeline::before {
+        left: 30px;
+    }
+    
+    .timeline-item {
+        padding-left: 60px;
+    }
+    
+    .timeline-marker {
+        left: 23px;
+    }
+}
+
+/* 
+* Home Page Specific Styles 
+*/
+.hero-section {
+    background: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('/images/hero-bg.jpg');
+    background-size: cover;
+    background-position: center;
+    color: white;
+    padding: 100px 0;
+    text-align: center;
+    margin-bottom: 60px;
+}
+
+.hero-content {
+    max-width: 700px;
+    margin: 0 auto;
+}
+
+.hero-title {
+    font-size: 3rem;
+    font-weight: 700;
+    margin-bottom: 20px;
+}
+
+.feature-icon {
+    font-size: 3rem;
+    margin-bottom: 20px;
+    color: var(--primary);
+}
+
+.testimonial-card {
+    background-color: #f8f9fa;
+}
+
+.testimonial-avatar {
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    overflow: hidden;
+    margin: 0 auto 15px;
+}
+
+.testimonial-rating {
+    color: var(--warning);
+    margin-bottom: 10px;
+}

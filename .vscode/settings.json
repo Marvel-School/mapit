@@ -1,0 +1,42 @@
+{
+    "files.hotExit": "off", 
+    "workbench.editor.restoreViewState": false,
+    "workbench.editor.enablePreview": false,
+    "files.restoreUndoStack": false,
+    "workbench.startupEditor": "none",
+    "window.restoreFullscreen": false,
+    "window.newWindowDimensions": "default",
+    "window.restoreWindows": "none",
+    "window.openFilesInNewWindow": "off",
+    "window.openFoldersInNewWindow": "off",
+    "workbench.editor.enablePreviewFromQuickOpen": false,
+    "workbench.editor.closeOnFileDelete": true,
+    "explorer.confirmDelete": false,
+    "files.autoSave": "off",
+    "workbench.editor.revealIfOpen": false,
+    "workbench.editor.enablePreviewFromCodeNavigation": false,
+    "workbench.editor.closeEmptyGroups": true,
+    "workbench.editor.limit.enabled": true,
+    "workbench.editor.limit.value": 10,
+    "workbench.editor.limit.perEditorGroup": true,
+    "files.watcherExclude": {
+        "**/.git/objects/**": true,
+        "**/.git/subtree-cache/**": true,
+        "**/node_modules/*/**": true,
+        "**/vendor/*/**": true,
+        "**/logs/**": true,
+        "**/.vscode/**": true
+    },
+    "search.exclude": {
+        "**/node_modules": true,
+        "**/vendor": true,
+        "**/logs": true,
+        "**/.git": true,
+        "**/.vscode": true
+    },
+    "files.exclude": {
+        "**/.git": true,
+        "**/.DS_Store": true,
+        "**/Thumbs.db": true
+    }
+}

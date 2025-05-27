@@ -29,11 +29,13 @@ class View
             
             // Get the contents of the buffer and clear it
             $content = ob_get_clean();
-            
-            // Check if layout is needed
+              // Check if layout is needed
             $layoutFile = __DIR__ . "/../Views/layouts/{$layout}.php";
             
             if (file_exists($layoutFile)) {
+                // Make content available to the layout
+                $data['content'] = $content;
+                extract($data);
                 require $layoutFile;
             } else {
                 echo $content;

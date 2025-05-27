@@ -69,6 +69,8 @@ $this->get('api/trips/{id}', 'Api\TripController', 'show');
 $this->post('api/trips', 'Api\TripController', 'store');
 $this->put('api/trips/{id}', 'Api\TripController', 'update');
 $this->delete('api/trips/{id}', 'Api\TripController', 'delete');
+$this->post('api/trips/{id}/start', 'Api\TripController', 'start');
+$this->post('api/trips/{id}/complete', 'Api\TripController', 'complete');
 
 $this->get('api/badges', 'Api\BadgeController', 'index');
 $this->get('api/badges/{id}', 'Api\BadgeController', 'show');

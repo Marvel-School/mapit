@@ -22,11 +22,13 @@ class Controller
      * @param string $view
      * @param array $data
      * @return void
-     */
-    public function view($view, $data = [])
+     */    public function view($view, $data = [])
     {
         // Add common data that all views might need
         $data = array_merge($this->getCommonViewData(), $data);
+        
+        // Determine layout before extracting data to avoid conflicts
+        $layoutName = isset($data['layout']) ? $data['layout'] : 'main';
         
         // Extract data to make variables available in view
         extract($data);
@@ -43,12 +45,13 @@ class Controller
             
             // Get the contents of the buffer and clear it
             $content = ob_get_clean();
-            
-            // Check if layout is specified
-            $layout = isset($layout) ? $layout : 'main';
-            $layoutFile = __DIR__ . "/../Views/layouts/{$layout}.php";
+              // Use the predetermined layout
+            $layoutFile = __DIR__ . "/../Views/layouts/{$layoutName}.php";
             
             if (file_exists($layoutFile)) {
+                // Make content available to layout along with other data
+                $data['content'] = $content;
+                extract($data);
                 require $layoutFile;
             } else {
                 echo $content;
@@ -143,9 +146,7 @@ class Controller
         if (!$this->hasRole($roles)) {
             $this->redirect($redirect);
         }
-    }
-
-    /**
+    }    /**
      * Get common data that should be available to all views
      * 
      * @return array
@@ -161,6 +162,9 @@ class Controller
         } catch (\Exception $e) {
             $commonData['googleMapsApiKey'] = '';
         }
+        
+        // Ensure we always have a string value, never null
+        $commonData['googleMapsApiKey'] = (string)($commonData['googleMapsApiKey'] ?? '');
         
         return $commonData;
     }

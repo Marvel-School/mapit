@@ -1,0 +1,10 @@
+<svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle -->
+  <circle cx="16" cy="16" r="14" fill="#007bff" stroke="#ffffff" stroke-width="2"/>
+  <!-- Route/path shape -->
+  <path d="M8 12 Q16 8 24 12 Q20 16 16 20 Q12 16 8 12" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round"/>
+  <!-- Dots along the path -->
+  <circle cx="10" cy="12" r="1.5" fill="#ffffff"/>
+  <circle cx="16" cy="16" r="1.5" fill="#ffffff"/>
+  <circle cx="22" cy="12" r="1.5" fill="#ffffff"/>
+</svg>

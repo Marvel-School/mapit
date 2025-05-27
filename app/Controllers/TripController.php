@@ -20,21 +20,32 @@ class TripController extends Controller
      * Display all user trips
      * 
      * @return void
-     */
-    public function index()
+     */    public function index()
     {
         $userId = $_SESSION['user_id'];
         
         // Get filter parameters
         $status = $_GET['status'] ?? null;
         $type = $_GET['type'] ?? null;
+        $page = max(1, intval($_GET['page'] ?? 1));
+        $perPage = 10;
         
         // Get trips
         $tripModel = $this->model('Trip');
         $trips = $tripModel->getUserTrips($userId, [
             'status' => $status,
+            'type' => $type,
+            'page' => $page,
+            'per_page' => $perPage
+        ]);
+        
+        // Get total count for pagination
+        $totalTrips = $tripModel->getUserTripsCount($userId, [
+            'status' => $status,
             'type' => $type
         ]);
+        
+        $totalPages = ceil($totalTrips / $perPage);
         
         // Get trip statistics
         $stats = $tripModel->getUserStats($userId);
@@ -46,7 +57,10 @@ class TripController extends Controller
             'filters' => [
                 'status' => $status,
                 'type' => $type
-            ]
+            ],
+            'currentPage' => $page,
+            'totalPages' => $totalPages,
+            'totalTrips' => $totalTrips
         ]);
     }
     

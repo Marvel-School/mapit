@@ -25,9 +25,8 @@
                             <!-- Profile Image -->
                             <div class="col-md-3 text-center mb-4 mb-md-0">
                                 <div class="mb-3">
-                                    <div class="profile-image">
-                                        <?php if (!empty($user['avatar'])): ?>
-                                            <img src="/images/avatars/<?= htmlspecialchars($user['avatar']); ?>" alt="Profile" class="rounded-circle img-fluid">
+                                    <div class="profile-image">                                        <?php if (!empty($user['avatar'])): ?>
+                                            <img src="/images/avatars/<?= htmlspecialchars($user['avatar'] ?? ''); ?>" alt="Profile" class="rounded-circle img-fluid">
                                         <?php else: ?>
                                             <img src="/images/default-avatar.png" alt="Profile" class="rounded-circle img-fluid">
                                         <?php endif; ?>
@@ -41,21 +40,19 @@
                             
                             <!-- Profile Info -->
                             <div class="col-md-9">
-                                <div class="row">
-                                    <div class="col-md-6 mb-3">
+                                <div class="row">                                    <div class="col-md-6 mb-3">
                                         <label for="name" class="form-label">Full Name</label>
-                                        <input type="text" class="form-control" id="name" name="name" value="<?= htmlspecialchars($user['name']); ?>" required>
+                                        <input type="text" class="form-control" id="name" name="name" value="<?= htmlspecialchars($user['name'] ?? ''); ?>" required>
                                     </div>
                                     
                                     <div class="col-md-6 mb-3">
                                         <label for="username" class="form-label">Username</label>
-                                        <input type="text" class="form-control" id="username" name="username" value="<?= htmlspecialchars($user['username']); ?>" required>
+                                        <input type="text" class="form-control" id="username" name="username" value="<?= htmlspecialchars($user['username'] ?? ''); ?>" required>
                                     </div>
                                 </div>
-                                
-                                <div class="mb-3">
+                                  <div class="mb-3">
                                     <label for="email" class="form-label">Email Address</label>
-                                    <input type="email" class="form-control" id="email" name="email" value="<?= htmlspecialchars($user['email']); ?>" required>
+                                    <input type="email" class="form-control" id="email" name="email" value="<?= htmlspecialchars($user['email'] ?? ''); ?>" required>
                                 </div>
                                 
                                 <div class="mb-3">
@@ -68,9 +65,8 @@
                                         <label for="country" class="form-label">Country</label>
                                         <select class="form-select" id="country" name="country">
                                             <option value="">Select Country</option>
-                                            <!-- Countries would be populated from a list -->
-                                            <?php foreach ($countries as $code => $name): ?>
-                                                <option value="<?= $code; ?>" <?= ($user['country'] == $code) ? 'selected' : ''; ?>>
+                                            <!-- Countries would be populated from a list -->                                            <?php foreach ($countries as $code => $name): ?>
+                                                <option value="<?= $code; ?>" <?= (($user['country'] ?? '') == $code) ? 'selected' : ''; ?>>
                                                     <?= $name; ?>
                                                 </option>
                                             <?php endforeach; ?>

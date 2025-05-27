@@ -40,10 +40,12 @@ class DashboardController extends Controller
         
         // Get most recent badge
         $userBadges = $userModel->getBadges($userId);
-        $recentBadge = !empty($userBadges) ? $userBadges[0] : null;
-          // Get featured destinations for the map
+        $recentBadge = !empty($userBadges) ? $userBadges[0] : null;        // Get featured destinations for the map
         $destinationModel = $this->model('Destination');
         $featured = $destinationModel->getFeatured(10);
+        
+        // Get user's destinations with trip status for the map
+        $userDestinations = $destinationModel->getUserDestinationsWithTripStatus($userId);
         
         // Get countries for the modal
         $countries = $this->getCountries();
@@ -65,6 +67,7 @@ class DashboardController extends Controller
             'userBadges' => $userBadges,  // Pass the user's badges for the badges section
             'recentBadge' => $recentBadge,
             'featured' => $featured,
+            'userDestinations' => $userDestinations,
             'countries' => $countries
         ]);
     }
@@ -95,23 +98,32 @@ class DashboardController extends Controller
             'badges' => $badges,
             'countries' => $countries
         ]);
-    }
-    
-    /**
+    }    /**
      * Update user profile
      * 
      * @return void
      */
     public function updateProfile()
     {
+        // Add debugging
+        error_log("DashboardController::updateProfile called");
+        
         $userId = $_SESSION['user_id'];
         
         // Get form data
+        $name = $_POST['name'] ?? '';
         $username = $_POST['username'] ?? '';
         $email = $_POST['email'] ?? '';
+        $bio = $_POST['bio'] ?? '';
+        $website = $_POST['website'] ?? '';
+        $country = $_POST['country'] ?? '';
         $currentPassword = $_POST['current_password'] ?? '';
         $newPassword = $_POST['new_password'] ?? '';
-        $confirmPassword = $_POST['confirm_password'] ?? '';
+        $confirmPassword = $_POST['new_password_confirm'] ?? '';
+        $settings = $_POST['settings'] ?? [];
+        
+        // Debug form data
+        error_log("Form data received: " . print_r($_POST, true));
         
         // Get user data
         $userModel = $this->model('User');
@@ -119,6 +131,11 @@ class DashboardController extends Controller
         
         // Validate form data
         $errors = [];
+        
+        // Validate name
+        if (empty($name)) {
+            $errors['name'] = 'Full name is required';
+        }
         
         // Validate username
         if (empty($username)) {
@@ -135,13 +152,17 @@ class DashboardController extends Controller
         if (empty($email)) {
             $errors['email'] = 'Email is required';
         } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            $errors['email'] = 'Email is invalid';
-        } elseif ($email !== $user['email']) {
+            $errors['email'] = 'Email is invalid';        } elseif ($email !== $user['email']) {
             // Check if email is already taken by another user
             $existingUser = $userModel->findByEmail($email);
             if ($existingUser && $existingUser['id'] != $userId) {
                 $errors['email'] = 'Email is already taken';
             }
+        }
+        
+        // Validate website URL if provided
+        if (!empty($website) && !filter_var($website, FILTER_VALIDATE_URL)) {
+            $errors['website'] = 'Website must be a valid URL';
         }
         
         // Check if password is being updated
@@ -164,7 +185,7 @@ class DashboardController extends Controller
             
             // Validate confirm password
             if ($newPassword !== $confirmPassword) {
-                $errors['confirm_password'] = 'Passwords do not match';
+                $errors['new_password_confirm'] = 'Passwords do not match';
             }
         }
           // If there are errors, return to profile page with errors
@@ -185,21 +206,38 @@ class DashboardController extends Controller
             ]);
             return;
         }
-        
-        // Update user data
+          // Update user data
         $userData = [
+            'name' => $name,
             'username' => $username,
-            'email' => $email
+            'email' => $email,
+            'bio' => $bio,
+            'website' => $website,
+            'country' => $country
         ];
+        
+        // Handle settings as JSON
+        if (!empty($settings)) {
+            $userData['settings'] = json_encode([
+                'public_profile' => isset($settings['public_profile']),
+                'email_notifications' => isset($settings['email_notifications']),
+                'show_visited_places' => isset($settings['show_visited_places'])
+            ]);
+        }
         
         // Update password if needed
         if ($updatePassword) {
             $userData['password_hash'] = password_hash($newPassword, PASSWORD_DEFAULT);
         }
-        
-        // Update user in database
+          // Update user in database
         $updated = $userModel->update($userId, $userData);
-          if (!$updated) {
+        
+        // Debug update result
+        error_log("User update result: " . ($updated ? 'SUCCESS' : 'FAILED'));
+        error_log("Updated data: " . print_r($userData, true));
+        
+        if (!$updated) {
+            error_log("Update failed - showing errors");
             $errors['update'] = 'Failed to update profile';
             
             // Get user badges
@@ -224,11 +262,11 @@ class DashboardController extends Controller
         $logModel::write('INFO', "User profile updated: {$username}", [
             'user_id' => $userId
         ], 'User');
-        
-        // Update session data
+          // Update session data
         $_SESSION['username'] = $username;
         
         // Redirect with success message
+        error_log("Profile update successful - redirecting with success message");
         $_SESSION['success'] = 'Profile updated successfully';
         $this->redirect('/profile');
     }

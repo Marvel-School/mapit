@@ -40,12 +40,16 @@ class Trip extends Model
             $sql .= " AND t.type = :type";
             $params[':type'] = $filters['type'];
         }
-        
-        $sql .= " ORDER BY t.created_at DESC";
+          $sql .= " ORDER BY t.created_at DESC";
+          // Add pagination if specified
+        if (!empty($filters['page']) && !empty($filters['per_page'])) {
+            $offset = ($filters['page'] - 1) * $filters['per_page'];
+            $sql .= " LIMIT " . (int)$filters['per_page'] . " OFFSET " . (int)$offset;
+        }
         
         $this->db->query($sql);
         
-        // Bind all parameters
+        // Bind all parameters except limit/offset (those are directly in SQL now)
         foreach ($params as $key => $value) {
             $this->db->bind($key, $value);
         }
@@ -168,5 +172,38 @@ class Trip extends Model
     {
         $userModel = new \App\Models\User();
         $userModel->checkBadgeProgress($userId);
+    }
+    
+    /**
+     * Get total count of user trips with filters
+     * 
+     * @param int $userId
+     * @param array $filters
+     * @return int
+     */
+    public function getUserTripsCount($userId, $filters = [])
+    {
+        $sql = "SELECT COUNT(*) as count FROM trips WHERE user_id = :user_id";
+        $params = [':user_id' => $userId];
+        
+        // Apply filters
+        if (!empty($filters['status'])) {
+            $sql .= " AND status = :status";
+            $params[':status'] = $filters['status'];
+        }
+        
+        if (!empty($filters['type'])) {
+            $sql .= " AND type = :type";
+            $params[':type'] = $filters['type'];
+        }
+        
+        $this->db->query($sql);
+        
+        foreach ($params as $key => $value) {
+            $this->db->bind($key, $value);
+        }
+        
+        $result = $this->db->single();
+        return $result ? (int) $result['count'] : 0;
     }
 }

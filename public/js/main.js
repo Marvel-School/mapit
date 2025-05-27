@@ -724,9 +724,8 @@ function handleQuickDestinationSave() {
             
             // Add the new destination to the map immediately
             addNewDestinationToMap(result.data, data);
-            
-            // Update page stats if available
-            updateDestinationStats();
+              // Update page stats if available
+            updateDestinationStats(data.visited);
             
         } else {
             throw new Error(result.message || 'Failed to create destination');
@@ -967,13 +966,12 @@ function addNewDestinationToMap(destinationData, formData) {
 /**
  * Update destination statistics on the page
  */
-function updateDestinationStats() {
+function updateDestinationStats(visitedStatus) {
     // This function updates any stat counters on the page
     // Look for elements that display destination counts
     
     // Check if the new destination was marked as visited
-    const statusSelect = document.getElementById('quickDestinationStatus');
-    const isVisited = statusSelect && statusSelect.value === '1';
+    const isVisited = visitedStatus === '1' || visitedStatus === 1;
     
     if (isVisited) {
         // Update places visited count if present

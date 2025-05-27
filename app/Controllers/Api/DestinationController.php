@@ -273,10 +273,8 @@ class DestinationController extends Controller
         $name = trim($input['name'] ?? '');
         $city = trim($input['city'] ?? '');
         $country = trim($input['country'] ?? '');
-        $description = trim($input['description'] ?? '');
-        $visited = isset($input['visited']) ? (int)$input['visited'] : 0;
+        $description = trim($input['description'] ?? '');        $visited = isset($input['visited']) ? (int)$input['visited'] : 0;
         $privacy = $input['privacy'] ?? 'private';
-        $visitDate = $input['visit_date'] ?? null;
         
         // Basic validation
         if (!is_numeric($latitude) || !is_numeric($longitude)) {
@@ -322,21 +320,15 @@ class DestinationController extends Controller
         }
           // Get the created destination
         $destination = $destinationModel->find($destinationId);
-        
-        // If destination is marked as visited, create a trip record
+          // If destination is marked as visited, create a trip record
         if ($visited == 1) {
             $tripModel = $this->model('Trip');
             $tripData = [
                 'user_id' => $_SESSION['user_id'],
                 'destination_id' => $destinationId,
                 'status' => 'visited',
-                'type' => 'quick_add'
+                'type' => 'adventure'  // Changed from 'quick_add' to match enum values
             ];
-            
-            // Add visit date if provided
-            if (!empty($visitDate)) {
-                $tripData['visit_date'] = $visitDate;
-            }
             
             $tripId = $tripModel->create($tripData);
             
@@ -347,15 +339,14 @@ class DestinationController extends Controller
                     'user_id' => $_SESSION['user_id'],
                     'destination_id' => $destinationId
                 ], 'Trip');
-            }
-        } else {
+            }        } else {
             // For wishlist items, create a planned trip
             $tripModel = $this->model('Trip');
             $tripData = [
                 'user_id' => $_SESSION['user_id'],
                 'destination_id' => $destinationId,
                 'status' => 'planned',
-                'type' => 'quick_add'
+                'type' => 'adventure'  // Changed from 'quick_add' to match enum values
             ];
             
             $tripId = $tripModel->create($tripData);

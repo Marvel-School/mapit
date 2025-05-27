@@ -118,6 +118,54 @@ class Destination extends Model
     }
     
     /**
+     * Get user's destinations with trip status information for dashboard map
+     * This includes the latest trip status (planned, in_progress, visited) for each destination
+     * 
+     * @param int $userId
+     * @return array
+     */
+    public function getUserDestinationsWithTripStatus($userId)
+    {
+        $this->db->query("
+            SELECT DISTINCT d.*, 
+                d.country as country_name,
+                u.username as creator,
+                t.status as trip_status,
+                t.created_at as trip_date,
+                t.id as trip_id,
+                CASE 
+                    WHEN t.status = 'visited' THEN 1 
+                    ELSE 0 
+                END as visited,
+                (SELECT COUNT(*) FROM trips WHERE destination_id = d.id AND user_id = :trip_user_id) as trip_count
+            FROM destinations d
+            LEFT JOIN users u ON d.user_id = u.id
+            LEFT JOIN trips t ON d.id = t.destination_id AND t.user_id = :trip_user_id2 
+                AND t.id = (
+                    SELECT id FROM trips t2 
+                    WHERE t2.destination_id = d.id AND t2.user_id = :trip_user_id3 
+                    ORDER BY 
+                        CASE t2.status 
+                            WHEN 'visited' THEN 1
+                            WHEN 'in_progress' THEN 2
+                            WHEN 'planned' THEN 3
+                            ELSE 4
+                        END,
+                        t2.created_at DESC 
+                    LIMIT 1
+                )            WHERE d.user_id = :user_id
+            ORDER BY d.created_at DESC
+        ");
+        
+        $this->db->bind(':user_id', $userId);
+        $this->db->bind(':trip_user_id', $userId);
+        $this->db->bind(':trip_user_id2', $userId);
+        $this->db->bind(':trip_user_id3', $userId);
+        
+        return $this->db->resultSet();
+    }
+    
+    /**
      * Get destinations pending approval
      * 
      * @return array

@@ -11,11 +11,11 @@
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">    <!-- Custom CSS -->
     <link rel="stylesheet" href="/css/style.css">
-    
-    <!-- Google Maps API Key for JS Fallback -->    <?php
+      <!-- Google Maps API Key for JS Fallback -->
+    <?php
     $apiKey = $googleMapsApiKey ?? '';
     ?>
-    <meta name="google-maps-api-key" content="<?= htmlspecialchars($apiKey); ?>">
+    <meta name="google-maps-api-key" content="<?= htmlspecialchars($apiKey ?: ''); ?>">
 </head>
 <body>
     <!-- Navigation -->
@@ -162,11 +162,10 @@
     $cacheBust = file_exists(__DIR__ . '/../../../public/cache-bust.txt') ? trim(file_get_contents(__DIR__ . '/../../../public/cache-bust.txt')) : time();
     ?>
     <script src="/js/main.js?v=<?= $cacheBust; ?>"></script>
-    
-    <!-- Google Maps API - Simple and Direct Loading -->
+      <!-- Google Maps API - Simple and Direct Loading -->
     <?php if (!empty($apiKey)): ?>
     <script async defer 
-            src="https://maps.googleapis.com/maps/api/js?key=<?= htmlspecialchars($apiKey); ?>&libraries=places,marker&callback=initializeGoogleMaps&v=weekly">
+            src="https://maps.googleapis.com/maps/api/js?key=<?= htmlspecialchars($apiKey ?: ''); ?>&libraries=places,marker&callback=initializeGoogleMaps&v=weekly">
     </script>
     <?php endif; ?>
 </body>

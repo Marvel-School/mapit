@@ -176,4 +176,88 @@ class TripController extends Controller
             echo json_encode(['success' => false, 'message' => 'Server error: ' . $e->getMessage()]);
         }
     }
+    
+    /**
+     * Start a planned trip
+     * 
+     * @param int $id Trip ID
+     * @return void
+     */
+    public function start($id)
+    {
+        // Check if user is logged in
+        if (!isset($_SESSION['user_id'])) {
+            http_response_code(401);
+            echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+            return;
+        }
+        
+        try {
+            $tripModel = $this->model('Trip');
+            $trip = $tripModel->findById($id);
+            
+            if (!$trip || $trip['user_id'] != $_SESSION['user_id']) {
+                http_response_code(404);
+                echo json_encode(['success' => false, 'message' => 'Trip not found']);
+                return;
+            }
+            
+            $result = $tripModel->update($id, ['status' => 'in_progress']);
+            
+            if ($result) {
+                // Redirect back to trips page
+                header('Location: /trips?message=Trip started successfully');
+                exit;
+            } else {
+                http_response_code(500);
+                echo json_encode(['success' => false, 'message' => 'Failed to start trip']);
+            }
+            
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Server error: ' . $e->getMessage()]);
+        }
+    }
+    
+    /**
+     * Complete an in-progress trip
+     * 
+     * @param int $id Trip ID
+     * @return void
+     */
+    public function complete($id)
+    {
+        // Check if user is logged in
+        if (!isset($_SESSION['user_id'])) {
+            http_response_code(401);
+            echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+            return;
+        }
+        
+        try {
+            $tripModel = $this->model('Trip');
+            $trip = $tripModel->findById($id);
+            
+            if (!$trip || $trip['user_id'] != $_SESSION['user_id']) {
+                http_response_code(404);
+                echo json_encode(['success' => false, 'message' => 'Trip not found']);
+                return;
+            }
+            
+            $result = $tripModel->update($id, ['status' => 'completed']);
+            
+            if ($result) {
+                // Redirect back to trips page
+                header('Location: /trips?message=Trip completed successfully! Check your badges for new achievements.');
+                exit;
+            } else {
+                http_response_code(500);
+                echo json_encode(['success' => false, 'message' => 'Failed to complete trip']);
+            }
+            
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Server error: ' . $e->getMessage()]);
+        }
+    }
 }

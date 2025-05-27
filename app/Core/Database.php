@@ -126,16 +126,15 @@ class Database
 
         $this->statement->bindValue($param, $value, $type);
         return $this;
-    }
-
-    // Execute the prepared statement
+    }    // Execute the prepared statement
     public function execute()
     {
         try {
             return $this->statement->execute();
         } catch (PDOException $e) {
             $this->error = $e->getMessage();
-            echo 'Query Error: ' . $this->error;
+            // Log the error instead of echoing it to prevent header issues
+            error_log('Database Query Error: ' . $this->error);
             return false;
         }
     }

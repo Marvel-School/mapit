@@ -194,11 +194,49 @@
         width: 48px;
         height: 48px;
     }
-    
-    .badge-icon {
+      .badge-icon {
         width: 60px;
         height: 60px;
         margin: 0 auto;
+    }
+    
+    /* Map marker status badges */
+    .map-marker-container {
+        position: relative;
+        display: inline-block;
+    }
+    
+    .marker-wrapper {
+        position: relative;
+    }
+    
+    .status-badge {
+        position: absolute;
+        top: -5px;
+        right: -5px;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 8px;
+        color: white;
+        border: 2px solid white;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    }
+    
+    .status-badge.visited {
+        background-color: #28a745;
+    }
+    
+    .status-badge.in-progress {
+        background-color: #007bff;
+    }
+    
+    .status-badge.planned {
+        background-color: #ffc107;
+        color: #000;
     }
 </style>
 
@@ -233,10 +271,19 @@ document.addEventListener('DOMContentLoaded', function() {
             mapTypeControl: false,
             streetViewControl: false,
             mapId: 'MAPIT_DASHBOARD_MAP'
-        });
-          // Use the featured destinations data passed from PHP instead of user destinations
+        });        // Load both featured destinations and user destinations
         const featuredDestinations = <?= json_encode($featured ?? []); ?>;
-        addDestinationsToMap(window.travelMap, featuredDestinations);
+        const userDestinations = <?= json_encode($userDestinations ?? []); ?>;
+        
+        // Mark featured destinations as featured
+        featuredDestinations.forEach(dest => {
+            dest.featured = true;
+        });
+        
+        // Combine all destinations
+        const allDestinations = [...featuredDestinations, ...userDestinations];
+        
+        addDestinationsToMap(window.travelMap, allDestinations);
         
         // Enable interactive map clicking for adding destinations
         enableInteractiveMapClicking(window.travelMap);
@@ -246,44 +293,40 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
-        const bounds = new google.maps.LatLngBounds();        // Use the same marker icons as destinations page
-        const visitedIcon = {
-            url: '/images/markers/visited.png',
-            scaledSize: new google.maps.Size(32, 32)
-        };
-        const wishlistIcon = {
-            url: '/images/markers/wishlist.png',
-            scaledSize: new google.maps.Size(32, 32)
-        };        const featuredIcon = {
-            url: '/images/markers/featured.svg',
-            scaledSize: new google.maps.Size(32, 32)
-        };
+        const bounds = new google.maps.LatLngBounds();
+          // Helper function to get marker colors
+        function getMarkerColor(markerType) {
+            switch (markerType) {
+                case 'featured': return '#ff6b35';
+                case 'visited': return '#28a745';
+                case 'in_progress': return '#007bff';
+                case 'planned': return '#ffc107';
+                default: return '#6c757d';
+            }
+        }
+          // Helper function to get marker icons
+        function getMarkerIcon(markerType) {
+            const iconMap = {
+                'featured': { url: '/images/markers/featured.svg', scaledSize: new google.maps.Size(32, 32) },
+                'visited': { url: '/images/markers/visited.png', scaledSize: new google.maps.Size(32, 32) },
+                'in_progress': { url: '/images/markers/in_progress.svg', scaledSize: new google.maps.Size(32, 32) },
+                'planned': { url: '/images/markers/planned.svg', scaledSize: new google.maps.Size(32, 32) },
+                'wishlist': { url: '/images/markers/wishlist.png', scaledSize: new google.maps.Size(32, 32) }
+            };
+            return iconMap[markerType] || iconMap['wishlist'];
+        }
         
-        // Fallback markers if images fail to load
-        const visitedMarker = {
-            path: google.maps.SymbolPath.CIRCLE,
-            fillColor: '#28a745',
-            fillOpacity: 0.8,
-            scale: 8,
-            strokeColor: '#ffffff',
-            strokeWeight: 2
-        };        const plannedMarker = {
-            path: google.maps.SymbolPath.CIRCLE,
-            fillColor: '#ffc107',
-            fillOpacity: 0.8,
-            scale: 8,
-            strokeColor: '#ffffff',
-            strokeWeight: 2
-        };
-        const featuredMarker = {
-            path: google.maps.SymbolPath.CIRCLE,
-            fillColor: '#ff6b35',
-            fillOpacity: 0.8,
-            scale: 8,
-            strokeColor: '#ffffff',
-            strokeWeight: 2
-        };
-        
+        // Helper function to get fallback markers
+        function getFallbackMarker(markerType) {
+            return {
+                path: google.maps.SymbolPath.CIRCLE,
+                fillColor: getMarkerColor(markerType),
+                fillOpacity: 0.8,
+                scale: 8,
+                strokeColor: '#ffffff',
+                strokeWeight: 2
+            };
+        }        
         destinations.forEach(dest => {
             // Skip destinations with invalid coordinates
             if (!dest.latitude || !dest.longitude) {
@@ -300,25 +343,53 @@ document.addEventListener('DOMContentLoaded', function() {
             if (isNaN(position.lat) || isNaN(position.lng)) {
                 console.warn('Skipping destination with invalid coordinate format:', dest);
                 return;
-            }            // For featured destinations, show them as featured markers (star icon)
-            // For user destinations, check if visited based on trip_count
-            const isFeatured = dest.featured || !dest.hasOwnProperty('trip_count');
-            const hasBeenVisited = !isFeatured && (dest.trip_count && dest.trip_count > 0);
+            }            // Determine marker type and status
+            const isFeatured = dest.featured || !dest.hasOwnProperty('trip_status');
+            let markerType = 'wishlist'; // default
+            let statusBadge = '';
             
-            // Create marker element for AdvancedMarkerElement
-            const markerElement = document.createElement('div');            markerElement.innerHTML = `
-                <img src="/images/markers/${isFeatured ? 'featured.svg' : (hasBeenVisited ? 'visited.png' : 'wishlist.png')}"
-                     style="width: 32px; height: 32px;"                     alt="${isFeatured ? 'Featured' : (hasBeenVisited ? 'Visited' : 'Wishlist')} destination"
-                     onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
-                <div style="
-                    display: none;
-                    width: 16px; 
-                    height: 16px; 
-                    background: ${isFeatured ? '#ff6b35' : (hasBeenVisited ? '#28a745' : '#ffc107')};
-                    border: 2px solid white; 
-                    border-radius: 50%;
-                    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-                "></div>
+            if (isFeatured) {
+                markerType = 'featured';
+            } else {
+                // Handle trip status for user destinations
+                switch (dest.trip_status) {
+                    case 'visited':
+                        markerType = 'visited';
+                        statusBadge = '<div class="status-badge visited"><i class="fas fa-check"></i></div>';
+                        break;
+                    case 'in_progress':
+                        markerType = 'in_progress';
+                        statusBadge = '<div class="status-badge in-progress"><i class="fas fa-route"></i></div>';
+                        break;
+                    case 'planned':
+                        markerType = 'planned';
+                        statusBadge = '<div class="status-badge planned"><i class="fas fa-clock"></i></div>';
+                        break;
+                    default:
+                        markerType = 'wishlist';
+                        break;
+                }
+            }
+            
+            // Create marker element for AdvancedMarkerElement with status badge
+            const markerElement = document.createElement('div');
+            markerElement.className = 'map-marker-container';            markerElement.innerHTML = `
+                <div class="marker-wrapper">
+                    <img src="/images/markers/${markerType === 'in_progress' ? 'in_progress' : markerType}.${markerType === 'visited' || markerType === 'wishlist' ? 'png' : 'svg'}"
+                         style="width: 32px; height: 32px;"
+                         alt="${markerType} destination"
+                         onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                    <div style="
+                        display: none;
+                        width: 16px; 
+                        height: 16px; 
+                        background: ${getMarkerColor(markerType)};
+                        border: 2px solid white; 
+                        border-radius: 50%;
+                        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                    "></div>
+                    ${statusBadge}
+                </div>
             `;
             
             // Create marker using new API if available, fallback to legacy
@@ -332,7 +403,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         content: markerElement
                     });                } else {
                     // Fallback to legacy marker
-                    const iconToUse = isFeatured ? featuredIcon : (hasBeenVisited ? visitedIcon : wishlistIcon);
+                    const iconToUse = getMarkerIcon(markerType);
                     marker = new google.maps.Marker({
                         position: position,
                         map: map,
@@ -344,28 +415,27 @@ document.addEventListener('DOMContentLoaded', function() {
                     marker.addListener('icon_changed', function() {
                         const img = new Image();
                         img.onerror = function() {
-                            const fallbackMarker = isFeatured ? featuredMarker : (hasBeenVisited ? visitedMarker : plannedMarker);
+                            const fallbackMarker = getFallbackMarker(markerType);
                             marker.setIcon(fallbackMarker);
                         };
                         img.src = iconToUse.url;
                     });
-                }
-            } catch (error) {
+                }            } catch (error) {
                 console.warn('Error creating advanced marker, using legacy marker:', error);
                 marker = new google.maps.Marker({
                     position: position,
                     map: map,
                     title: dest.name,
-                    icon: hasBeenVisited ? visitedIcon : wishlistIcon
+                    icon: getMarkerIcon(markerType)
                 });
                 
                 // Add error handling for marker icon loading
                 marker.addListener('icon_changed', function() {
                     const img = new Image();
                     img.onerror = function() {
-                        marker.setIcon(hasBeenVisited ? visitedMarker : plannedMarker);
+                        marker.setIcon(getFallbackMarker(markerType));
                     };
-                    img.src = (hasBeenVisited ? visitedIcon : wishlistIcon).url;
+                    img.src = getMarkerIcon(markerType).url;
                 });
             }
             

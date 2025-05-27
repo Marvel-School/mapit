@@ -10,8 +10,7 @@ class Destination extends Model
         'name', 'description', 'country', 'city', 'latitude', 'longitude', 
         'privacy', 'user_id', 'featured', 'notes', 'approval_status'
     ];
-    
-    /**
+      /**
      * Get public destinations
      * 
      * @return array
@@ -19,7 +18,12 @@ class Destination extends Model
     public function getPublic()
     {
         $this->db->query("
-            SELECT d.*, u.username as creator
+            SELECT d.*, 
+                u.username as creator,
+                d.country as country_name,
+                0 as visited,
+                NULL as visit_date,
+                0 as trip_count
             FROM destinations d
             LEFT JOIN users u ON d.user_id = u.id
             WHERE d.privacy = 'public' AND d.approval_status = 'approved'
@@ -60,7 +64,14 @@ class Destination extends Model
     {
         $this->db->query("
             SELECT d.*, 
-                (SELECT COUNT(*) FROM trips WHERE destination_id = d.id AND user_id = :trip_user_id) as trip_count
+                d.country as country_name,
+                CASE 
+                    WHEN EXISTS(SELECT 1 FROM trips WHERE destination_id = d.id AND user_id = :trip_user_id AND status = 'visited') 
+                    THEN 1 
+                    ELSE 0 
+                END as visited,
+                (SELECT created_at FROM trips WHERE destination_id = d.id AND user_id = :trip_user_id2 AND status = 'visited' ORDER BY created_at DESC LIMIT 1) as visit_date,
+                (SELECT COUNT(*) FROM trips WHERE destination_id = d.id AND user_id = :trip_user_id3) as trip_count
             FROM destinations d
             WHERE d.user_id = :user_id
             ORDER BY d.created_at DESC
@@ -68,6 +79,8 @@ class Destination extends Model
         
         $this->db->bind(':user_id', $userId);
         $this->db->bind(':trip_user_id', $userId);
+        $this->db->bind(':trip_user_id2', $userId);
+        $this->db->bind(':trip_user_id3', $userId);
         
         return $this->db->resultSet();
     }

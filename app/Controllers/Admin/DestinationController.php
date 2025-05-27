@@ -230,5 +230,72 @@ class DestinationController extends Controller
         
         // Redirect back to the destination
         $this->redirect('/admin/destinations/' . $id);
+    }    /**
+     * Update destination status via AJAX
+     * 
+     * @param int $id
+     * @return void
+     */
+    public function status($id)
+    {
+        // Ensure this is an AJAX request
+        if (!\App\Core\Request::isAjax()) {
+            $this->json(['success' => false, 'message' => 'Invalid request'], 400);
+            return;
+        }
+
+        // Get destination
+        $destinationModel = $this->model('Destination');
+        $destination = $destinationModel->find($id);
+        
+        if (!$destination) {
+            $this->json(['success' => false, 'message' => 'Destination not found'], 404);
+            return;
+        }
+
+        // Get JSON input
+        $input = json_decode(file_get_contents('php://input'), true);
+        
+        if (!$input || !isset($input['status'])) {
+            $this->json(['success' => false, 'message' => 'Status is required'], 400);
+            return;
+        }
+
+        $newStatus = $input['status'];
+        
+        // Validate status
+        if (!in_array($newStatus, ['pending', 'approved', 'rejected'])) {
+            $this->json(['success' => false, 'message' => 'Invalid status'], 400);
+            return;
+        }
+
+        // Check if status is actually changing
+        if ($destination['approval_status'] === $newStatus) {
+            $this->json(['success' => false, 'message' => "Destination is already {$newStatus}"], 400);
+            return;
+        }
+
+        // Update status
+        $updated = $destinationModel->update($id, ['approval_status' => $newStatus]);
+        
+        if (!$updated) {
+            $this->json(['success' => false, 'message' => 'Failed to update status'], 500);
+            return;
+        }
+
+        // Log the status change
+        $logModel = $this->model('Log');
+        $logModel::write('INFO', "Destination status changed: {$destination['name']} to {$newStatus}", [
+            'admin_id' => $_SESSION['user_id'],
+            'destination_id' => $id,
+            'old_status' => $destination['approval_status'],
+            'new_status' => $newStatus
+        ], 'Admin');
+
+        $this->json([
+            'success' => true, 
+            'message' => "Destination {$newStatus} successfully",
+            'status' => $newStatus
+        ]);
     }
 }

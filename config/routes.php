@@ -86,6 +86,7 @@ $this->get('admin/destinations', 'Admin\DestinationController', 'index');
 $this->get('admin/destinations/{id}', 'Admin\DestinationController', 'show');
 $this->post('admin/destinations/{id}/approve', 'Admin\DestinationController', 'approve');
 $this->post('admin/destinations/{id}/reject', 'Admin\DestinationController', 'reject');
+$this->post('admin/destinations/{id}/status', 'Admin\DestinationController', 'status');
 
 $this->get('admin/logs', 'Admin\LogController', 'index');
 

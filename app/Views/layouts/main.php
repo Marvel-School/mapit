@@ -157,12 +157,11 @@
     
     <!-- Preconnect to Google Maps domains for faster loading -->
     <link rel="preconnect" href="https://maps.googleapis.com">
-    <link rel="preconnect" href="https://maps.gstatic.com">
-      <!-- Custom JS -->
-    <script src="/js/main.js"></script>
-    
-    <!-- Destinations Map Handler -->
-    <script src="/js/destinations-map.js"></script>
+    <link rel="preconnect" href="https://maps.gstatic.com">    <!-- Custom JS -->
+    <?php
+    $cacheBust = file_exists(__DIR__ . '/../../../public/cache-bust.txt') ? trim(file_get_contents(__DIR__ . '/../../../public/cache-bust.txt')) : time();
+    ?>
+    <script src="/js/main.js?v=<?= $cacheBust; ?>"></script>
     
     <!-- Google Maps API - Simple and Direct Loading -->
     <?php if (!empty($apiKey)): ?>

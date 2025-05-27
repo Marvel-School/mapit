@@ -136,23 +136,20 @@ class Trip extends Model
         $stats['relaxation'] = (int) $result['count'];
         
         return $stats;
-    }
-      /**
-     * Count the number of different destinations visited by a user
-     * This is a placeholder for country count functionality
+    }    /**
+     * Count the number of different countries visited by a user
      * 
      * @param int $userId
      * @return int
      */
     public function getCountriesVisitedCount($userId)
     {
-        // As a placeholder, we'll return a count of distinct destination IDs
-        // In a real implementation, this would use geocoding data to determine countries
+        // Count distinct countries from visited destinations
         $this->db->query("
-            SELECT COUNT(DISTINCT d.id) as count
+            SELECT COUNT(DISTINCT d.country) as count
             FROM trips t
             JOIN destinations d ON t.destination_id = d.id
-            WHERE t.user_id = :user_id AND t.status = 'visited'
+            WHERE t.user_id = :user_id AND t.status = 'visited' AND d.country IS NOT NULL AND d.country != ''
         ");
         
         $this->db->bind(':user_id', $userId);

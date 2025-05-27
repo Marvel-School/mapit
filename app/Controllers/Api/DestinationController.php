@@ -227,13 +227,18 @@ class DestinationController extends Controller
             $this->json(['success' => false, 'message' => 'Destination not found'], 404);
             return;
         }
-        
-        // Check if user has permission to delete
+          // Check if user has permission to delete
         if ($destination['user_id'] != $_SESSION['user_id'] && !$this->hasRole('admin')) {
             $this->json(['success' => false, 'message' => 'Access denied'], 403);
             return;
         }
-        
+
+        // Prevent deletion of featured destinations by non-admin users
+        if ($destination['featured'] == 1 && !$this->hasRole('admin')) {
+            $this->json(['success' => false, 'message' => 'Featured destinations cannot be deleted. Please contact an administrator if you need assistance.'], 403);
+            return;
+        }
+
         $deleted = $destinationModel->delete($id);
         
         if ($deleted) {

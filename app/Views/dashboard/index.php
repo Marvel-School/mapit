@@ -234,10 +234,9 @@ document.addEventListener('DOMContentLoaded', function() {
             streetViewControl: false,
             mapId: 'MAPIT_DASHBOARD_MAP'
         });
-        
-        // Use the destinations data passed from PHP instead of making an AJAX call
-        const userDestinations = <?= json_encode($userDestinations ?? []); ?>;
-        addDestinationsToMap(window.travelMap, userDestinations);
+          // Use the featured destinations data passed from PHP instead of user destinations
+        const featuredDestinations = <?= json_encode($featured ?? []); ?>;
+        addDestinationsToMap(window.travelMap, featuredDestinations);
         
         // Enable interactive map clicking for adding destinations
         enableInteractiveMapClicking(window.travelMap);
@@ -247,14 +246,16 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
-        const bounds = new google.maps.LatLngBounds();
-        // Use the same marker icons as destinations page
+        const bounds = new google.maps.LatLngBounds();        // Use the same marker icons as destinations page
         const visitedIcon = {
             url: '/images/markers/visited.png',
             scaledSize: new google.maps.Size(32, 32)
         };
         const wishlistIcon = {
             url: '/images/markers/wishlist.png',
+            scaledSize: new google.maps.Size(32, 32)
+        };        const featuredIcon = {
+            url: '/images/markers/featured.svg',
             scaledSize: new google.maps.Size(32, 32)
         };
         
@@ -266,10 +267,17 @@ document.addEventListener('DOMContentLoaded', function() {
             scale: 8,
             strokeColor: '#ffffff',
             strokeWeight: 2
-        };
-        const plannedMarker = {
+        };        const plannedMarker = {
             path: google.maps.SymbolPath.CIRCLE,
             fillColor: '#ffc107',
+            fillOpacity: 0.8,
+            scale: 8,
+            strokeColor: '#ffffff',
+            strokeWeight: 2
+        };
+        const featuredMarker = {
+            path: google.maps.SymbolPath.CIRCLE,
+            fillColor: '#ff6b35',
             fillOpacity: 0.8,
             scale: 8,
             strokeColor: '#ffffff',
@@ -292,22 +300,21 @@ document.addEventListener('DOMContentLoaded', function() {
             if (isNaN(position.lat) || isNaN(position.lng)) {
                 console.warn('Skipping destination with invalid coordinate format:', dest);
                 return;
-            }
-              // Check if this destination has been visited based on trip_count
-            const hasBeenVisited = (dest.trip_count && dest.trip_count > 0);
+            }            // For featured destinations, show them as featured markers (star icon)
+            // For user destinations, check if visited based on trip_count
+            const isFeatured = dest.featured || !dest.hasOwnProperty('trip_count');
+            const hasBeenVisited = !isFeatured && (dest.trip_count && dest.trip_count > 0);
             
             // Create marker element for AdvancedMarkerElement
-            const markerElement = document.createElement('div');
-            markerElement.innerHTML = `
-                <img src="/images/markers/${hasBeenVisited ? 'visited' : 'wishlist'}.png" 
-                     style="width: 32px; height: 32px;" 
-                     alt="${hasBeenVisited ? 'Visited' : 'Wishlist'} destination"
+            const markerElement = document.createElement('div');            markerElement.innerHTML = `
+                <img src="/images/markers/${isFeatured ? 'featured.svg' : (hasBeenVisited ? 'visited.png' : 'wishlist.png')}"
+                     style="width: 32px; height: 32px;"                     alt="${isFeatured ? 'Featured' : (hasBeenVisited ? 'Visited' : 'Wishlist')} destination"
                      onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
                 <div style="
                     display: none;
                     width: 16px; 
                     height: 16px; 
-                    background: ${hasBeenVisited ? '#28a745' : '#ffc107'}; 
+                    background: ${isFeatured ? '#ff6b35' : (hasBeenVisited ? '#28a745' : '#ffc107')};
                     border: 2px solid white; 
                     border-radius: 50%;
                     box-shadow: 0 2px 4px rgba(0,0,0,0.3);
@@ -323,23 +330,24 @@ document.addEventListener('DOMContentLoaded', function() {
                         map: map,
                         title: dest.name,
                         content: markerElement
-                    });
-                } else {
+                    });                } else {
                     // Fallback to legacy marker
+                    const iconToUse = isFeatured ? featuredIcon : (hasBeenVisited ? visitedIcon : wishlistIcon);
                     marker = new google.maps.Marker({
                         position: position,
                         map: map,
                         title: dest.name,
-                        icon: hasBeenVisited ? visitedIcon : wishlistIcon
+                        icon: iconToUse
                     });
                     
                     // Add error handling for marker icon loading
                     marker.addListener('icon_changed', function() {
                         const img = new Image();
                         img.onerror = function() {
-                            marker.setIcon(hasBeenVisited ? visitedMarker : plannedMarker);
+                            const fallbackMarker = isFeatured ? featuredMarker : (hasBeenVisited ? visitedMarker : plannedMarker);
+                            marker.setIcon(fallbackMarker);
                         };
-                        img.src = (hasBeenVisited ? visitedIcon : wishlistIcon).url;
+                        img.src = iconToUse.url;
                     });
                 }
             } catch (error) {
@@ -369,11 +377,12 @@ document.addEventListener('DOMContentLoaded', function() {
                         <a href="/destinations/${dest.id}" class="btn btn-sm btn-primary">View Details</a>
                     </div>
                 `
-            });
-              // Add click listener based on marker type
+            });              // Add click listener based on marker type
             if (google.maps.marker && google.maps.marker.AdvancedMarkerElement &&
                 marker instanceof google.maps.marker.AdvancedMarkerElement) {
                 marker.addEventListener('click', () => {
+                    // Prevent map click handler from triggering
+                    if (window.onMarkerClick) window.onMarkerClick();
                     infoWindow.open({
                         anchor: marker,
                         map: map
@@ -381,6 +390,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
             } else {
                 marker.addListener('click', () => {
+                    // Prevent map click handler from triggering
+                    if (window.onMarkerClick) window.onMarkerClick();
                     infoWindow.open(map, marker);
                 });
             }

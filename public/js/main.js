@@ -71,18 +71,10 @@ function initializeMapElements() {
     const destinationMap = document.getElementById('destination-map');
     if (destinationMap) {
         initializeDestinationMap(destinationMap);
-    }
-
-    // Initialize trip planning map
+    }    // Initialize trip planning map
     const tripMap = document.getElementById('trip-map');
     if (tripMap) {
         initializeTripMap(tripMap);
-    }
-
-    // Initialize destinations index map
-    const destinationsMap = document.getElementById('destinations-map');
-    if (destinationsMap) {
-        initDestinationsMap();
     }
 }
 
@@ -342,10 +334,23 @@ function initializeTravelMap(mapElement) {
  * @param {google.maps.Map} map - The map instance
  */
 function enableInteractiveMapClicking(map) {
+    let markerClickOccurred = false;
+    
     // Add click listener for map
     map.addListener('click', function(event) {
-        handleMapClick(event.latLng, map);
+        // Use a small delay to allow marker clicks to be processed first
+        setTimeout(() => {
+            if (!markerClickOccurred) {
+                handleMapClick(event.latLng, map);
+            }
+            markerClickOccurred = false;
+        }, 10);
     });
+    
+    // Track when marker clicks occur to prevent map click handling
+    window.onMarkerClick = function() {
+        markerClickOccurred = true;
+    };
 }
 
 /**

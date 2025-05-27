@@ -73,10 +73,9 @@ class TripController extends Controller
         ");
         $db->bind(':user_id', $userId);
         $destinations = $db->resultSet();
-        
-        $this->view('trips/create', [
+          $this->view('trips/create', [
             'title' => 'Create New Trip',
-            'destinations' => $destinations
+            'userDestinations' => $destinations
         ]);
     }
     
@@ -213,16 +212,27 @@ class TripController extends Controller
         $db->bind(':id', $id);
         $db->bind(':user_id', $userId);
         $trip = $db->single();
-        
-        if (!$trip) {
+          if (!$trip) {
             $_SESSION['error'] = 'Trip not found or you do not have permission to edit it';
             $this->redirect('/trips');
             return;
         }
-        
+
+        // Get all public approved destinations and user's private destinations for editing
+        $db->query("
+            SELECT d.*
+            FROM destinations d
+            WHERE (d.privacy = 'public' AND d.approval_status = 'approved')
+            OR d.user_id = :user_id
+            ORDER BY d.name
+        ");
+        $db->bind(':user_id', $userId);
+        $destinations = $db->resultSet();
+
         $this->view('trips/edit', [
             'title' => 'Edit Trip to ' . $trip['destination_name'],
-            'trip' => $trip
+            'trip' => $trip,
+            'userDestinations' => $destinations
         ]);
     }
     

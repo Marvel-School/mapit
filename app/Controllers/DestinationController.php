@@ -15,8 +15,7 @@ class DestinationController extends Controller
     {
         $this->requireLogin();
     }
-    
-    /**
+      /**
      * Display all destinations
      * 
      * @return void
@@ -33,14 +32,31 @@ class DestinationController extends Controller
         // Get public destinations
         $publicDestinations = $destinationModel->getPublic();
         
+        // Combine all destinations for the view
+        $destinations = array_merge($userDestinations, $publicDestinations);
+        
+        // Add pagination variables (simple implementation for now)
+        $totalDestinations = count($destinations);
+        $perPage = 12; // destinations per page
+        $currentPage = (int)($_GET['page'] ?? 1);
+        $totalPages = ceil($totalDestinations / $perPage);
+        
+        // Apply pagination
+        $offset = ($currentPage - 1) * $perPage;
+        $paginatedDestinations = array_slice($destinations, $offset, $perPage);
+        
         // Get countries as array of objects for filtering
         $countries = $this->getCountries(true);
         
         $this->view('destinations/index', [
             'title' => 'Destinations',
+            'destinations' => $paginatedDestinations,
             'userDestinations' => $userDestinations,
             'publicDestinations' => $publicDestinations,
-            'countries' => $countries
+            'countries' => $countries,
+            'currentPage' => $currentPage,
+            'totalPages' => $totalPages,
+            'totalDestinations' => $totalDestinations
         ]);
     }
     
@@ -352,14 +368,20 @@ class DestinationController extends Controller
             $this->redirect('/destinations');
             return;
         }
-        
-        // Check if user has permission to delete
+          // Check if user has permission to delete
         if ($destination['user_id'] != $_SESSION['user_id'] && !$this->hasRole('admin')) {
             $_SESSION['error'] = 'You do not have permission to delete this destination';
             $this->redirect('/destinations');
             return;
         }
-        
+
+        // Prevent deletion of featured destinations by non-admin users
+        if ($destination['featured'] == 1 && !$this->hasRole('admin')) {
+            $_SESSION['error'] = 'Featured destinations cannot be deleted. Please contact an administrator if you need assistance.';
+            $this->redirect('/destinations/' . $id);
+            return;
+        }
+
         // Delete destination
         $deleted = $destinationModel->delete($id);
         

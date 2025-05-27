@@ -62,10 +62,12 @@
                                     <strong>Added On:</strong> <?= date('F j, Y', strtotime($destination['created_at'])); ?>
                                 </p>
                             </div>
-                            
-                            <div class="d-grid gap-2">                                <a href="/destinations/<?= $destination['id']; ?>/edit" class="btn btn-outline-primary">
-                                    <i class="fas fa-edit me-1"></i> Edit Destination
-                                </a>
+                              <div class="d-grid gap-2">
+                                <?php if ($destination['user_id'] == $_SESSION['user_id'] || (isset($_SESSION['role']) && $_SESSION['role'] == 'admin')): ?>
+                                    <a href="/destinations/<?= $destination['id']; ?>/edit" class="btn btn-outline-primary">
+                                        <i class="fas fa-edit me-1"></i> Edit Destination
+                                    </a>
+                                <?php endif; ?>
                                 
                                 <?php if ($trip && $trip['status'] === 'visited'): ?>
                                     <button class="btn btn-outline-warning" onclick="updateTripStatus(<?= $destination['id']; ?>, 'planned')">
@@ -81,9 +83,17 @@
                                     </button>
                                 <?php endif; ?>
                                 
-                                <button class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">
-                                    <i class="fas fa-trash-alt me-1"></i> Delete Destination
-                                </button>
+                                <?php if ($destination['user_id'] == $_SESSION['user_id'] || (isset($_SESSION['role']) && $_SESSION['role'] == 'admin')): ?>
+                                    <?php if ($destination['featured'] == 1 && !(isset($_SESSION['role']) && $_SESSION['role'] == 'admin')): ?>
+                                        <div class="alert alert-info small mb-2">
+                                            <i class="fas fa-star me-1"></i> This is a featured destination and cannot be deleted.
+                                        </div>
+                                    <?php else: ?>
+                                        <button class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">
+                                            <i class="fas fa-trash-alt me-1"></i> Delete Destination
+                                        </button>
+                                    <?php endif; ?>
+                                <?php endif; ?>
                             </div>
                         </div>
                     </div>
@@ -305,33 +315,33 @@ document.addEventListener('DOMContentLoaded', function() {
             marker.addListener('click', () => {
                 infoWindow.open(map, marker);
             });
-        }
-          // Show nearby destinations if available
+        }        
+        // Show nearby destinations if available
         <?php if (!empty($nearbyDestinations)): ?>
             <?php foreach ($nearbyDestinations as $nearby): ?>
                 // Create nearby marker with AdvancedMarkerElement or fallback
-                let nearbyMarker;
+                let nearbyMarker<?= $nearby['id']; ?>;
                 try {
                     if (google.maps.marker && google.maps.marker.AdvancedMarkerElement) {
-                        const nearbyIconElement = document.createElement('img');
-                        nearbyIconElement.src = '/images/markers/wishlist.png';
-                        nearbyIconElement.style.width = '24px';
-                        nearbyIconElement.style.height = '24px';
+                        const nearbyIconElement<?= $nearby['id']; ?> = document.createElement('img');
+                        nearbyIconElement<?= $nearby['id']; ?>.src = '/images/markers/wishlist.png';
+                        nearbyIconElement<?= $nearby['id']; ?>.style.width = '24px';
+                        nearbyIconElement<?= $nearby['id']; ?>.style.height = '24px';
                         
-                        nearbyMarker = new google.maps.marker.AdvancedMarkerElement({
+                        nearbyMarker<?= $nearby['id']; ?> = new google.maps.marker.AdvancedMarkerElement({
                             position: { 
                                 lat: <?= $nearby['latitude']; ?>, 
                                 lng: <?= $nearby['longitude']; ?> 
                             },
                             map: map,
                             title: '<?= addslashes(htmlspecialchars($nearby['name'])); ?>',
-                            content: nearbyIconElement
+                            content: nearbyIconElement<?= $nearby['id']; ?>
                         });
                     } else {
                         throw new Error('AdvancedMarkerElement not available');
                     }
                 } catch (error) {
-                    nearbyMarker = new google.maps.Marker({
+                    nearbyMarker<?= $nearby['id']; ?> = new google.maps.Marker({
                         position: { 
                             lat: <?= $nearby['latitude']; ?>, 
                             lng: <?= $nearby['longitude']; ?> 
@@ -344,8 +354,10 @@ document.addEventListener('DOMContentLoaded', function() {
                         }
                     });
                 }
-                  const nearbyInfo = new google.maps.InfoWindow({
-                    content: `                        <div class="info-window">
+                
+                const nearbyInfo<?= $nearby['id']; ?> = new google.maps.InfoWindow({
+                    content: `
+                        <div class="info-window">
                             <h5><?= addslashes(htmlspecialchars($nearby['name'])); ?></h5>
                             <p><?= addslashes(htmlspecialchars($nearby['city'] . ', ' . $nearby['country'])); ?></p>
                             <p><small><?= round($nearby['distance'], 1); ?> km away</small></p>
@@ -356,19 +368,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // Add click listener based on marker type
                 if (google.maps.marker && google.maps.marker.AdvancedMarkerElement &&
-                    nearbyMarker instanceof google.maps.marker.AdvancedMarkerElement) {
-                    nearbyMarker.addEventListener('click', () => {
-                        nearbyInfo.open({
-                            anchor: nearbyMarker,
+                    nearbyMarker<?= $nearby['id']; ?> instanceof google.maps.marker.AdvancedMarkerElement) {
+                    nearbyMarker<?= $nearby['id']; ?>.addEventListener('click', () => {
+                        nearbyInfo<?= $nearby['id']; ?>.open({
+                            anchor: nearbyMarker<?= $nearby['id']; ?>,
                             map: map
                         });
                     });
                 } else {
-                    nearbyMarker.addListener('click', () => {
-                        nearbyInfo.open(map, nearbyMarker);
+                    nearbyMarker<?= $nearby['id']; ?>.addListener('click', () => {
+                        nearbyInfo<?= $nearby['id']; ?>.open(map, nearbyMarker<?= $nearby['id']; ?>);
                     });
-                }
-            <?php endforeach; ?>
+                }            <?php endforeach; ?>
         <?php endif; ?>
     }
 });

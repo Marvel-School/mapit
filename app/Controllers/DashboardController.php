@@ -41,11 +41,9 @@ class DashboardController extends Controller
         // Get most recent badge
         $userBadges = $userModel->getBadges($userId);
         $recentBadge = !empty($userBadges) ? $userBadges[0] : null;
-        
-        // Get featured destinations for the map
+          // Get featured destinations for the map
         $destinationModel = $this->model('Destination');
-        $featured = $destinationModel->getFeatured(10);        // Get user's destinations for the map
-        $userDestinations = $destinationModel->getByUser($userId);
+        $featured = $destinationModel->getFeatured(10);
         
         // Get countries for the modal
         $countries = $this->getCountries();
@@ -57,8 +55,7 @@ class DashboardController extends Controller
             'wishlist_count' => $tripStats['planned'] ?? 0,
             'trips_count' => ($tripStats['visited'] ?? 0) + ($tripStats['planned'] ?? 0),
             'badges_earned' => count($userBadges ?? []),
-        ];
-          $this->view('dashboard/index', [
+        ];        $this->view('dashboard/index', [
             'title' => 'Dashboard',
             'user' => $user,
             'tripStats' => $tripStats,
@@ -68,7 +65,6 @@ class DashboardController extends Controller
             'userBadges' => $userBadges,  // Pass the user's badges for the badges section
             'recentBadge' => $recentBadge,
             'featured' => $featured,
-            'userDestinations' => $userDestinations,
             'countries' => $countries
         ]);
     }

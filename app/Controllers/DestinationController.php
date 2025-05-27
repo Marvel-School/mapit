@@ -19,21 +19,14 @@ class DestinationController extends Controller
      * Display all destinations
      * 
      * @return void
-     */
-    public function index()
+     */    public function index()
     {
         $userId = $_SESSION['user_id'];
         
         $destinationModel = $this->model('Destination');
         
-        // Get user's destinations
-        $userDestinations = $destinationModel->getByUser($userId);
-        
-        // Get public destinations
-        $publicDestinations = $destinationModel->getPublic();
-        
-        // Combine all destinations for the view
-        $destinations = array_merge($userDestinations, $publicDestinations);
+        // Get user's own destinations and public destinations they have trips for
+        $destinations = $destinationModel->getUserDestinationsWithTrips($userId);
         
         // Add pagination variables (simple implementation for now)
         $totalDestinations = count($destinations);
@@ -51,8 +44,6 @@ class DestinationController extends Controller
         $this->view('destinations/index', [
             'title' => 'Destinations',
             'destinations' => $paginatedDestinations,
-            'userDestinations' => $userDestinations,
-            'publicDestinations' => $publicDestinations,
             'countries' => $countries,
             'currentPage' => $currentPage,
             'totalPages' => $totalPages,

@@ -84,6 +84,38 @@ class Destination extends Model
         
         return $this->db->resultSet();
     }
+      /**
+     * Get destinations by user - only their own destinations and public ones they have explicitly added trips for
+     * 
+     * @param int $userId
+     * @return array
+     */
+    public function getUserDestinationsWithTrips($userId)
+    {
+        $this->db->query("
+            SELECT DISTINCT d.*, 
+                d.country as country_name,
+                u.username as creator,
+                CASE 
+                    WHEN EXISTS(SELECT 1 FROM trips WHERE destination_id = d.id AND user_id = :trip_user_id AND status = 'visited') 
+                    THEN 1 
+                    ELSE 0 
+                END as visited,
+                (SELECT created_at FROM trips WHERE destination_id = d.id AND user_id = :trip_user_id2 AND status = 'visited' ORDER BY created_at DESC LIMIT 1) as visit_date,
+                (SELECT COUNT(*) FROM trips WHERE destination_id = d.id AND user_id = :trip_user_id3) as trip_count
+            FROM destinations d
+            LEFT JOIN users u ON d.user_id = u.id
+            WHERE d.user_id = :user_id
+            ORDER BY d.created_at DESC
+        ");
+        
+        $this->db->bind(':user_id', $userId);
+        $this->db->bind(':trip_user_id', $userId);
+        $this->db->bind(':trip_user_id2', $userId);
+        $this->db->bind(':trip_user_id3', $userId);
+        
+        return $this->db->resultSet();
+    }
     
     /**
      * Get destinations pending approval

@@ -259,8 +259,7 @@ class DestinationController extends Controller
      * Quick destination creation from map click with location lookup
      * 
      * @return void
-     */
-    public function quickCreate()
+     */    public function quickCreate()
     {
         $input = json_decode(file_get_contents('php://input'), true);
         
@@ -271,6 +270,13 @@ class DestinationController extends Controller
         
         $latitude = $input['latitude'] ?? '';
         $longitude = $input['longitude'] ?? '';
+        $name = trim($input['name'] ?? '');
+        $city = trim($input['city'] ?? '');
+        $country = trim($input['country'] ?? '');
+        $description = trim($input['description'] ?? '');
+        $visited = isset($input['visited']) ? (int)$input['visited'] : 0;
+        $privacy = $input['privacy'] ?? 'private';
+        $visitDate = $input['visit_date'] ?? null;
         
         // Basic validation
         if (!is_numeric($latitude) || !is_numeric($longitude)) {
@@ -281,19 +287,28 @@ class DestinationController extends Controller
             return;
         }
         
-        // Create a basic destination with coordinates
-        // The user can edit details later
+        if (empty($name)) {
+            $this->json([
+                'success' => false,
+                'message' => 'Destination name is required'
+            ], 422);
+            return;
+        }
+        
+        // Create destination with user-provided data
         $destinationModel = $this->model('Destination');
         
         $destinationData = [
-            'name' => 'New Location',
+            'name' => $name,
             'latitude' => $latitude,
             'longitude' => $longitude,
-            'description' => 'Location added from map click',
-            'privacy' => 'private', // Default to private for quick creates
-            'visited' => 0,
+            'description' => !empty($description) ? $description : null,
+            'city' => !empty($city) ? $city : null,
+            'country' => !empty($country) ? $country : null,
+            'privacy' => $privacy,
+            'visited' => $visited,
             'user_id' => $_SESSION['user_id'],
-            'approval_status' => 'approved' // Private destinations are auto-approved
+            'approval_status' => $privacy === 'private' ? 'approved' : 'pending'
         ];
         
         $destinationId = $destinationModel->create($destinationData);
@@ -305,9 +320,55 @@ class DestinationController extends Controller
             ], 500);
             return;
         }
-        
-        // Get the created destination
+          // Get the created destination
         $destination = $destinationModel->find($destinationId);
+        
+        // If destination is marked as visited, create a trip record
+        if ($visited == 1) {
+            $tripModel = $this->model('Trip');
+            $tripData = [
+                'user_id' => $_SESSION['user_id'],
+                'destination_id' => $destinationId,
+                'status' => 'visited',
+                'type' => 'quick_add'
+            ];
+            
+            // Add visit date if provided
+            if (!empty($visitDate)) {
+                $tripData['visit_date'] = $visitDate;
+            }
+            
+            $tripId = $tripModel->create($tripData);
+            
+            if (!$tripId) {
+                // Log the error but don't fail the destination creation
+                $logModel = $this->model('Log');
+                $logModel::write('ERROR', "Failed to create trip for quick destination", [
+                    'user_id' => $_SESSION['user_id'],
+                    'destination_id' => $destinationId
+                ], 'Trip');
+            }
+        } else {
+            // For wishlist items, create a planned trip
+            $tripModel = $this->model('Trip');
+            $tripData = [
+                'user_id' => $_SESSION['user_id'],
+                'destination_id' => $destinationId,
+                'status' => 'planned',
+                'type' => 'quick_add'
+            ];
+            
+            $tripId = $tripModel->create($tripData);
+            
+            if (!$tripId) {
+                // Log the error but don't fail the destination creation
+                $logModel = $this->model('Log');
+                $logModel::write('ERROR', "Failed to create planned trip for quick destination", [
+                    'user_id' => $_SESSION['user_id'],
+                    'destination_id' => $destinationId
+                ], 'Trip');
+            }
+        }
         
         // Log the creation
         $logModel = $this->model('Log');
@@ -315,7 +376,8 @@ class DestinationController extends Controller
             'user_id' => $_SESSION['user_id'],
             'destination_id' => $destinationId,
             'latitude' => $latitude,
-            'longitude' => $longitude
+            'longitude' => $longitude,
+            'visited' => $visited
         ], 'Destination');
         
         $this->json([

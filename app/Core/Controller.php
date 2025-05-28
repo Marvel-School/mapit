@@ -27,9 +27,6 @@ class Controller
         // Add common data that all views might need
         $data = array_merge($this->getCommonViewData(), $data);
         
-        // Determine layout before extracting data to avoid conflicts
-        $layoutName = isset($data['layout']) ? $data['layout'] : 'main';
-        
         // Extract data to make variables available in view
         extract($data);
         
@@ -45,7 +42,12 @@ class Controller
             
             // Get the contents of the buffer and clear it
             $content = ob_get_clean();
-              // Use the predetermined layout
+            
+            // Determine layout - check if $layout variable was set in the view file
+            // If not, use layout from data, if not, default to 'main'
+            $layoutName = isset($layout) ? $layout : (isset($data['layout']) ? $data['layout'] : 'main');
+            
+            // Use the determined layout
             $layoutFile = __DIR__ . "/../Views/layouts/{$layoutName}.php";
             
             if (file_exists($layoutFile)) {

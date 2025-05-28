@@ -242,6 +242,63 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Enhanced Google Maps loading check with retry mechanism
+    function waitForGoogleMapsReady() {
+        return new Promise((resolve, reject) => {
+            const maxRetries = 50; // 5 seconds maximum wait
+            let retries = 0;
+            
+            function checkReady() {
+                if (typeof google !== 'undefined' && 
+                    google.maps && 
+                    google.maps.Map && 
+                    google.maps.InfoWindow) {
+                    
+                    // Wait a bit more for marker library to be ready
+                    setTimeout(resolve, 100);
+                    return;
+                }
+                
+                retries++;
+                if (retries > maxRetries) {
+                    reject(new Error('Google Maps failed to load within timeout'));
+                    return;
+                }
+                
+                setTimeout(checkReady, 100);
+            }
+            
+            checkReady();
+        });
+    }
+    
+    // Initialize dashboard map with proper error handling
+    function initializeDashboardMap() {
+        waitForGoogleMapsReady()
+            .then(() => {
+                console.log('Google Maps ready, initializing dashboard map...');
+                initTravelMap();
+                initializeQuickDestinationCreate();
+            })
+            .catch(error => {
+                console.error('Failed to initialize Google Maps:', error);
+                showMapError();
+            });
+    }
+    
+    // Show error message if maps fail to load
+    function showMapError() {
+        const mapContainer = document.getElementById('travel-map');
+        if (mapContainer) {
+            mapContainer.innerHTML = `
+                <div class="alert alert-warning text-center">
+                    <h5><i class="fas fa-exclamation-triangle"></i> Map Loading Issue</h5>
+                    <p>The map is taking longer than expected to load. <a href="#" onclick="window.location.reload()">Refresh the page</a> to try again.</p>
+                </div>
+            `;
+        }
+    }
+    
     // Check if Google Maps is already loaded, otherwise wait for callback
     if (typeof google !== 'undefined' && google.maps) {
         initializeDashboardMap();
@@ -249,14 +306,6 @@ document.addEventListener('DOMContentLoaded', function() {
         // Add to callback queue for when Google Maps loads
         window.googleMapsCallbacks = window.googleMapsCallbacks || [];
         window.googleMapsCallbacks.push(initializeDashboardMap);
-    }
-    
-    function initializeDashboardMap() {
-        // Initialize the map
-        initTravelMap();
-        
-        // Initialize quick destination create functionality
-        initializeQuickDestinationCreate();
     }
     
     // Function to initialize the map with user's destinations
@@ -287,14 +336,17 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Enable interactive map clicking for adding destinations
         enableInteractiveMapClicking(window.travelMap);
-    }    // Function to add destinations to the map
+    }    // Function to add destinations to the map with enhanced error handling
     function addDestinationsToMap(map, destinations) {
         if (!destinations || destinations.length === 0) {
             return;
         }
-        
+
+        console.log(`Adding ${destinations.length} destinations to map...`);
         const bounds = new google.maps.LatLngBounds();
-          // Helper function to get marker colors
+        let markersAdded = 0;
+        
+        // Helper function to get marker colors
         function getMarkerColor(markerType) {
             switch (markerType) {
                 case 'featured': return '#ff6b35';
@@ -304,7 +356,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 default: return '#6c757d';
             }
         }
-          // Helper function to get marker icons
+        
+        // Helper function to get marker icons with preloading
         function getMarkerIcon(markerType) {
             const iconMap = {
                 'featured': { url: '/images/markers/featured.svg', scaledSize: new google.maps.Size(32, 32) },
@@ -326,11 +379,50 @@ document.addEventListener('DOMContentLoaded', function() {
                 strokeColor: '#ffffff',
                 strokeWeight: 2
             };
-        }        
-        destinations.forEach(dest => {
+        }
+        
+        // Preload marker images to avoid loading issues
+        function preloadMarkerImages() {
+            const imageUrls = [
+                '/images/markers/featured.svg',
+                '/images/markers/visited.png', 
+                '/images/markers/in_progress.svg',
+                '/images/markers/planned.svg',
+                '/images/markers/wishlist.png'
+            ];
+            
+            imageUrls.forEach(url => {
+                const img = new Image();
+                img.src = url;
+            });
+        }
+        
+        // Preload images first
+        preloadMarkerImages();
+        
+        // Add markers with proper error handling and retry mechanism
+        destinations.forEach((dest, index) => {
+            // Use setTimeout to prevent blocking and allow for better error handling
+            setTimeout(() => {
+                addSingleDestinationMarker(dest, map, bounds, () => {
+                    markersAdded++;
+                    
+                    // When all markers are added, adjust map bounds
+                    if (markersAdded === destinations.length && markersAdded > 0) {
+                        adjustMapBounds(map, bounds);
+                    }
+                });
+            }, index * 50); // Stagger marker creation to avoid overwhelming the API
+        });
+    }
+    
+    // Function to add a single destination marker with retry logic
+    function addSingleDestinationMarker(dest, map, bounds, onComplete) {
+        try {
             // Skip destinations with invalid coordinates
             if (!dest.latitude || !dest.longitude) {
                 console.warn('Skipping destination with invalid coordinates:', dest);
+                onComplete();
                 return;
             }
             
@@ -342,8 +434,11 @@ document.addEventListener('DOMContentLoaded', function() {
             // Skip if parsing failed
             if (isNaN(position.lat) || isNaN(position.lng)) {
                 console.warn('Skipping destination with invalid coordinate format:', dest);
+                onComplete();
                 return;
-            }            // Determine marker type and status
+            }
+            
+            // Determine marker type and status
             const isFeatured = dest.featured || !dest.hasOwnProperty('trip_status');
             let markerType = 'wishlist'; // default
             let statusBadge = '';
@@ -371,38 +466,67 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
             
-            // Create marker element for AdvancedMarkerElement with status badge
-            const markerElement = document.createElement('div');
-            markerElement.className = 'map-marker-container';            markerElement.innerHTML = `
-                <div class="marker-wrapper">
-                    <img src="/images/markers/${markerType === 'in_progress' ? 'in_progress' : markerType}.${markerType === 'visited' || markerType === 'wishlist' ? 'png' : 'svg'}"
-                         style="width: 32px; height: 32px;"
-                         alt="${markerType} destination"
-                         onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
-                    <div style="
-                        display: none;
-                        width: 16px; 
-                        height: 16px; 
-                        background: ${getMarkerColor(markerType)};
-                        border: 2px solid white; 
-                        border-radius: 50%;
-                        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-                    "></div>
-                    ${statusBadge}
-                </div>
-            `;
+            createMarkerWithFallback(dest, position, map, markerType, statusBadge, bounds, onComplete);
             
-            // Create marker using new API if available, fallback to legacy
-            let marker;
+        } catch (error) {
+            console.error('Error adding destination marker:', error, dest);
+            onComplete();
+        }
+    }
+    
+    // Create marker with fallback options
+    function createMarkerWithFallback(dest, position, map, markerType, statusBadge, bounds, onComplete) {
+        let marker;
+        let markerCreated = false;
+        
+        // Retry mechanism for marker creation
+        function attemptMarkerCreation(attempt = 1) {
             try {
-                if (google.maps.marker && google.maps.marker.AdvancedMarkerElement) {
+                // Try AdvancedMarkerElement first (with enhanced checking)
+                if (google.maps.marker && 
+                    google.maps.marker.AdvancedMarkerElement && 
+                    typeof google.maps.marker.AdvancedMarkerElement === 'function') {
+                    
+                    // Create marker element for AdvancedMarkerElement with status badge
+                    const markerElement = document.createElement('div');
+                    markerElement.className = 'map-marker-container';
+                    markerElement.innerHTML = `
+                        <div class="marker-wrapper">
+                            <img src="/images/markers/${markerType === 'in_progress' ? 'in_progress' : markerType}.${markerType === 'visited' || markerType === 'wishlist' ? 'png' : 'svg'}"
+                                 style="width: 32px; height: 32px;"
+                                 alt="${markerType} destination"
+                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                            <div style="
+                                display: none;
+                                width: 16px; 
+                                height: 16px; 
+                                background: ${getMarkerColor(markerType)};
+                                border: 2px solid white; 
+                                border-radius: 50%;
+                                box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                            "></div>
+                            ${statusBadge}
+                        </div>
+                    `;
+                    
                     marker = new google.maps.marker.AdvancedMarkerElement({
                         position: position,
                         map: map,
                         title: dest.name,
                         content: markerElement
-                    });                } else {
-                    // Fallback to legacy marker
+                    });
+                    
+                    markerCreated = true;
+                    
+                } else {
+                    throw new Error('AdvancedMarkerElement not available, using legacy marker');
+                }
+                
+            } catch (error) {
+                console.warn(`Attempt ${attempt}: Error creating advanced marker, using legacy marker:`, error);
+                
+                // Fallback to legacy marker
+                try {
                     const iconToUse = getMarkerIcon(markerType);
                     marker = new google.maps.Marker({
                         position: position,
@@ -410,6 +534,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         title: dest.name,
                         icon: iconToUse
                     });
+                    
+                    markerCreated = true;
                     
                     // Add error handling for marker icon loading
                     marker.addListener('icon_changed', function() {
@@ -420,66 +546,127 @@ document.addEventListener('DOMContentLoaded', function() {
                         };
                         img.src = iconToUse.url;
                     });
-                }            } catch (error) {
-                console.warn('Error creating advanced marker, using legacy marker:', error);
-                marker = new google.maps.Marker({
-                    position: position,
-                    map: map,
-                    title: dest.name,
-                    icon: getMarkerIcon(markerType)
+                    
+                } catch (legacyError) {
+                    console.error(`Attempt ${attempt}: Failed to create legacy marker:`, legacyError);
+                    
+                    if (attempt < 3) {
+                        // Retry after a short delay
+                        setTimeout(() => attemptMarkerCreation(attempt + 1), 100 * attempt);
+                        return;
+                    } else {
+                        // Final fallback - create a simple marker
+                        marker = new google.maps.Marker({
+                            position: position,
+                            map: map,
+                            title: dest.name,
+                            icon: getFallbackMarker(markerType)
+                        });
+                        markerCreated = true;
+                    }
+                }
+            }
+            
+            if (markerCreated && marker) {
+                // Create and attach info window
+                const infoWindow = new google.maps.InfoWindow({
+                    content: `
+                        <div class="info-window">
+                            <h5>${dest.name}</h5>
+                            <p>${dest.description ? dest.description.substring(0, 100) + '...' : 'No description'}</p>
+                            <a href="/destinations/${dest.id}" class="btn btn-sm btn-primary">View Details</a>
+                        </div>
+                    `
                 });
                 
-                // Add error handling for marker icon loading
-                marker.addListener('icon_changed', function() {
-                    const img = new Image();
-                    img.onerror = function() {
-                        marker.setIcon(getFallbackMarker(markerType));
-                    };
-                    img.src = getMarkerIcon(markerType).url;
-                });
-            }
-            
-            const infoWindow = new google.maps.InfoWindow({
-                content: `
-                    <div class="info-window">
-                        <h5>${dest.name}</h5>
-                        <p>${dest.description ? dest.description.substring(0, 100) + '...' : 'No description'}</p>
-                        <a href="/destinations/${dest.id}" class="btn btn-sm btn-primary">View Details</a>
-                    </div>
-                `
-            });              // Add click listener based on marker type
-            if (google.maps.marker && google.maps.marker.AdvancedMarkerElement &&
-                marker instanceof google.maps.marker.AdvancedMarkerElement) {
-                marker.addEventListener('click', () => {
-                    // Prevent map click handler from triggering
-                    if (window.onMarkerClick) window.onMarkerClick();
-                    infoWindow.open({
-                        anchor: marker,
-                        map: map
+                // Add click listener based on marker type
+                if (google.maps.marker && google.maps.marker.AdvancedMarkerElement &&
+                    marker instanceof google.maps.marker.AdvancedMarkerElement) {
+                    marker.addEventListener('click', () => {
+                        // Prevent map click handler from triggering
+                        if (window.onMarkerClick) window.onMarkerClick();
+                        infoWindow.open({
+                            anchor: marker,
+                            map: map
+                        });
                     });
-                });
-            } else {
-                marker.addListener('click', () => {
-                    // Prevent map click handler from triggering
-                    if (window.onMarkerClick) window.onMarkerClick();
-                    infoWindow.open(map, marker);
-                });
+                } else {
+                    marker.addListener('click', () => {
+                        // Prevent map click handler from triggering
+                        if (window.onMarkerClick) window.onMarkerClick();
+                        infoWindow.open(map, marker);
+                    });
+                }
+                
+                bounds.extend(position);
+                console.log(`Successfully added marker for: ${dest.name}`);
             }
             
-            bounds.extend(position);
-        });
+            onComplete();
+        }
         
-        // Only adjust bounds if we have destinations
-        if (destinations.length > 0) {
+        // Start the marker creation attempt
+        attemptMarkerCreation();
+    }
+    
+    // Helper function to get marker colors (duplicate for scoping)
+    function getMarkerColor(markerType) {
+        switch (markerType) {
+            case 'featured': return '#ff6b35';
+            case 'visited': return '#28a745';
+            case 'in_progress': return '#007bff';
+            case 'planned': return '#ffc107';
+            default: return '#6c757d';
+        }
+    }
+    
+    // Helper function to get marker icons (duplicate for scoping)
+    function getMarkerIcon(markerType) {
+        const iconMap = {
+            'featured': { url: '/images/markers/featured.svg', scaledSize: new google.maps.Size(32, 32) },
+            'visited': { url: '/images/markers/visited.png', scaledSize: new google.maps.Size(32, 32) },
+            'in_progress': { url: '/images/markers/in_progress.svg', scaledSize: new google.maps.Size(32, 32) },
+            'planned': { url: '/images/markers/planned.svg', scaledSize: new google.maps.Size(32, 32) },
+            'wishlist': { url: '/images/markers/wishlist.png', scaledSize: new google.maps.Size(32, 32) }
+        };
+        return iconMap[markerType] || iconMap['wishlist'];
+    }
+    
+    // Helper function to get fallback markers (duplicate for scoping)
+    function getFallbackMarker(markerType) {
+        return {
+            path: google.maps.SymbolPath.CIRCLE,
+            fillColor: getMarkerColor(markerType),
+            fillOpacity: 0.8,
+            scale: 8,
+            strokeColor: '#ffffff',
+            strokeWeight: 2
+        };
+    }
+    
+    // Function to adjust map bounds with better logic
+    function adjustMapBounds(map, bounds) {
+        try {
+            if (bounds.isEmpty()) {
+                console.log('No markers to fit bounds for');
+                return;
+            }
+            
             map.fitBounds(bounds);
             
-            // Prevent zooming in too much for single destinations
+            // Prevent zooming in too much for single destinations or close destinations
             const listener = google.maps.event.addListener(map, 'idle', function() {
-                if (map.getZoom() > 12) {
+                const currentZoom = map.getZoom();
+                if (currentZoom > 12) {
                     map.setZoom(12);
                 }
                 google.maps.event.removeListener(listener);
-            });        }
+            });
+            
+            console.log('Map bounds adjusted successfully');
+        } catch (error) {
+            console.error('Error adjusting map bounds:', error);
+        }
     }
 });
 </script>

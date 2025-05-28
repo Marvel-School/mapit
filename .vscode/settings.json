@@ -26,17 +26,41 @@
         "**/vendor/*/**": true,
         "**/logs/**": true,
         "**/.vscode/**": true
-    },
-    "search.exclude": {
+    },    "search.exclude": {
         "**/node_modules": true,
         "**/vendor": true,
         "**/logs": true,
         "**/.git": true,
-        "**/.vscode": true
+        "**/.vscode": true,
+        "**/test-*.php": true,
+        "**/debug-*.php": true,
+        "**/verify-*.php": true,
+        "**/*verification*.php": true,
+        "**/test-*.html": true,
+        "**/auto-login.php": true,
+        "**/cleanup_*.ps1": true
     },
     "files.exclude": {
         "**/.git": true,
         "**/.DS_Store": true,
-        "**/Thumbs.db": true
+        "**/Thumbs.db": true,
+        "**/test-*.php": true,
+        "**/debug-*.php": true,
+        "**/verify-*.php": true,
+        "**/*verification*.php": true,
+        "**/test-*.html": true,
+        "**/auto-login.php": true,
+        "**/cleanup_*.ps1": true
+    },
+    "search.exclude": {
+        "**/test-*.php": true,
+        "**/debug-*.php": true,
+        "**/verify-*.php": true,
+        "**/*verification*.php": true
+    },
+    "files.watcherExclude": {
+        "**/test-*.php": true,
+        "**/debug-*.php": true,
+        "**/verify-*.php": true
     }
 }

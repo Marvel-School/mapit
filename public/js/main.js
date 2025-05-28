@@ -13,51 +13,116 @@ let googleMapsInitialized = false;
 
 // Google Maps initialization callback - Called when the script loads
 function initializeGoogleMaps() {
-    // Simple and direct initialization
+    // Enhanced initialization with better error handling
     if (typeof google === 'undefined' || typeof google.maps === 'undefined') {
         console.warn('Google Maps API not available in callback');
         return;
     }
     
-    googleMapsInitialized = true;
+    console.log('Google Maps API loaded, checking libraries...');
     
-    // Initialize maps if DOM is ready
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initializeMapElements);
-    } else {
-        initializeMapElements();
-    }
-    
-    // Trigger any callbacks waiting for Google Maps to load
-    if (window.googleMapsCallbacks && Array.isArray(window.googleMapsCallbacks)) {
-        window.googleMapsCallbacks.forEach(callback => {
-            try {
-                callback();
-            } catch (error) {
-                console.warn('Error in Google Maps callback:', error);
+    // Wait for all required libraries to be available
+    function waitForLibraries() {
+        return new Promise((resolve, reject) => {
+            const maxWait = 30; // 3 seconds max wait
+            let attempts = 0;
+            
+            function checkLibraries() {
+                const hasBasic = google.maps.Map && google.maps.InfoWindow && google.maps.Marker;
+                const hasPlaces = google.maps.places && google.maps.places.SearchBox;
+                
+                if (hasBasic) {
+                    console.log('Google Maps basic libraries ready');
+                    googleMapsInitialized = true;
+                    resolve();
+                    return;
+                }
+                
+                attempts++;
+                if (attempts > maxWait) {
+                    console.warn('Timeout waiting for Google Maps libraries');
+                    googleMapsInitialized = true; // Proceed anyway
+                    resolve();
+                    return;
+                }
+                
+                setTimeout(checkLibraries, 100);
             }
+            
+            checkLibraries();
         });
-        window.googleMapsCallbacks = [];
     }
     
-    console.log('Google Maps initialized successfully');
+    waitForLibraries().then(() => {
+        // Initialize maps if DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initializeMapElements);
+        } else {
+            // Add a small delay to ensure DOM is fully ready
+            setTimeout(initializeMapElements, 100);
+        }
+        
+        // Trigger any callbacks waiting for Google Maps to load
+        if (window.googleMapsCallbacks && Array.isArray(window.googleMapsCallbacks)) {
+            window.googleMapsCallbacks.forEach(callback => {
+                try {
+                    console.log('Executing Google Maps callback...');
+                    callback();
+                } catch (error) {
+                    console.warn('Error in Google Maps callback:', error);
+                }
+            });
+            window.googleMapsCallbacks = [];
+        }
+        
+        console.log('Google Maps initialized successfully');
+    });
 }
 
 // Error handler for Google Maps API loading
 function gm_authFailure() {
     console.error('Google Maps authentication failed');
     
-    // Show simple error message on all map containers
+    // Show comprehensive error message on all map containers
     const mapContainers = document.querySelectorAll('[id$="-map"]');
     mapContainers.forEach(container => {
         container.innerHTML = `
             <div class="alert alert-danger">
-                <h5>Map could not be loaded</h5>
-                <p>Please check that your Google Maps API key is valid and properly configured.</p>
+                <h5><i class="fas fa-exclamation-circle"></i> Map Authentication Failed</h5>
+                <p>There was an issue loading the map. This could be due to:</p>
+                <ul class="mb-2">
+                    <li>Invalid Google Maps API key</li>
+                    <li>API key restrictions</li>
+                    <li>Billing account issues</li>
+                    <li>Network connectivity problems</li>
+                </ul>
+                <button class="btn btn-sm btn-primary" onclick="window.location.reload()">
+                    <i class="fas fa-redo"></i> Retry
+                </button>
             </div>
         `;
     });
 }
+
+// Additional global error handler for map loading issues
+window.addEventListener('error', function(event) {
+    if (event.message && event.message.includes('Google Maps')) {
+        console.error('Google Maps error detected:', event);
+        
+        // Show a user-friendly error message
+        const mapContainers = document.querySelectorAll('[id$="-map"]:empty');
+        mapContainers.forEach(container => {
+            if (!container.querySelector('.alert')) {
+                container.innerHTML = `
+                    <div class="alert alert-warning">
+                        <h6><i class="fas fa-exclamation-triangle"></i> Map Loading Issue</h6>
+                        <p>The map is having trouble loading. <a href="#" onclick="window.location.reload()">Please refresh the page</a> to try again.</p>
+                    </div>
+                `;
+            }
+        });
+    }
+});
 
 // Initialize map elements after both DOM and Google Maps are ready
 function initializeMapElements() {

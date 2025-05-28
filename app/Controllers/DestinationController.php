@@ -3,6 +3,7 @@
 namespace App\Controllers;
 
 use App\Core\Controller;
+use App\Core\FileUpload;
 use App\Core\Request;
 use App\Core\Validator;
 
@@ -26,7 +27,7 @@ class DestinationController extends Controller
         $destinationModel = $this->model('Destination');
         
         // Get user's own destinations and public destinations they have trips for
-        $destinations = $destinationModel->getUserDestinationsWithTrips($userId);
+        $destinations = $destinationModel->getUserDestinationsWithTripStatus($userId);
         
         // Add pagination variables (simple implementation for now)
         $totalDestinations = count($destinations);
@@ -65,14 +66,16 @@ class DestinationController extends Controller
             'title' => 'Add New Destination',
             'countries' => $countries
         ]);
-    }
-      /**
+    }      /**
      * Store new destination
      * 
      * @return void
      */
     public function store()
     {
+        // Validate CSRF token
+        $this->validateCSRF('/destinations/create');
+        
         // Get form data
         $name = $_POST['name'] ?? '';
         $latitude = $_POST['latitude'] ?? '';
@@ -108,11 +111,55 @@ class DestinationController extends Controller
             ]);
             return;
         }
+          // Handle image upload if provided
+        $imagePath = null;
+        if (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
+            try {
+                $fileUpload = new FileUpload();
+                $imagePath = $fileUpload->uploadImage($_FILES['image'], 'destinations');
+                
+                if (!$imagePath) {
+                    $errors = array_merge($errors, $fileUpload->getErrors());
+                }
+            } catch (\Exception $e) {
+                $errors['image'] = 'Image upload failed: ' . $e->getMessage();
+                
+                // Log the error
+                $logModel = $this->model('Log');
+                $logModel::write('ERROR', 'Destination image upload failed', [
+                    'user_id' => $_SESSION['user_id'],
+                    'error' => $e->getMessage(),
+                    'file_info' => [
+                        'name' => $_FILES['image']['name'],
+                        'size' => $_FILES['image']['size'],
+                        'type' => $_FILES['image']['type']
+                    ]
+                ], 'FileUpload');
+            }
+        }
+        
+        // If there were image upload errors, show them
+        if (!empty($errors)) {
+            $countries = $this->getCountries();
+            
+            $this->view('destinations/create', [
+                'title' => 'Add New Destination',
+                'errors' => $errors,
+                'name' => $name,
+                'latitude' => $latitude,
+                'longitude' => $longitude,
+                'description' => $description,
+                'privacy' => $privacy,
+                'notes' => $notes,
+                'countries' => $countries
+            ]);
+            return;
+        }
         
         // Create destination
         $destinationModel = $this->model('Destination');
         
-        $destinationId = $destinationModel->create([
+        $destinationData = [
             'name' => $name,
             'latitude' => $latitude,
             'longitude' => $longitude,
@@ -121,7 +168,14 @@ class DestinationController extends Controller
             'user_id' => $_SESSION['user_id'],
             'notes' => $notes,
             'approval_status' => ($privacy === 'public') ? 'pending' : 'approved'
-        ]);
+        ];
+        
+        // Add image path if uploaded
+        if ($imagePath) {
+            $destinationData['image'] = $imagePath;
+        }
+        
+        $destinationId = $destinationModel->create($destinationData);
           if (!$destinationId) {
             // Get countries for dropdown
             $countries = $this->getCountries();
@@ -239,8 +293,7 @@ class DestinationController extends Controller
             'countries' => $countries
         ]);
     }
-    
-    /**
+      /**
      * Update destination
      * 
      * @param int $id
@@ -264,6 +317,9 @@ class DestinationController extends Controller
             $this->redirect('/destinations');
             return;
         }
+        
+        // Validate CSRF token
+        $this->validateCSRF('/destinations/' . $id . '/edit');
           // Get form data
         $name = $_POST['name'] ?? '';
         $latitude = $_POST['latitude'] ?? '';
@@ -292,6 +348,63 @@ class DestinationController extends Controller
                 'errors' => $errors,
                 'countries' => $countries
             ]);
+            return;        }
+        
+        // Handle image deletion if requested
+        $deleteImage = isset($_POST['delete_image']) && $_POST['delete_image'] == '1';
+        
+        // Handle image upload if provided
+        $imagePath = $destination['image']; // Keep existing image by default
+        
+        if ($deleteImage) {
+            // Delete current image if it exists
+            if ($destination['image'] && file_exists($destination['image'])) {
+                unlink($destination['image']);
+            }
+            $imagePath = null; // Clear image path
+        }
+          if (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
+            try {
+                $fileUpload = new FileUpload();
+                $newImagePath = $fileUpload->uploadImage($_FILES['image'], 'destinations');
+                
+                if ($newImagePath) {
+                    // Delete old image if it exists and we're not just replacing due to delete checkbox
+                    if (!$deleteImage && $destination['image'] && file_exists($destination['image'])) {
+                        unlink($destination['image']);
+                    }
+                    $imagePath = $newImagePath;
+                } else {
+                    $errors = array_merge($errors, $fileUpload->getErrors());
+                }
+            } catch (\Exception $e) {
+                $errors['image'] = 'Image upload failed: ' . $e->getMessage();
+                
+                // Log the error
+                $logModel = $this->model('Log');
+                $logModel::write('ERROR', 'Destination image upload failed', [
+                    'user_id' => $_SESSION['user_id'],
+                    'destination_id' => $id,
+                    'error' => $e->getMessage(),
+                    'file_info' => [
+                        'name' => $_FILES['image']['name'],
+                        'size' => $_FILES['image']['size'],
+                        'type' => $_FILES['image']['type']
+                    ]
+                ], 'FileUpload');
+            }
+        }
+        
+        // If there were image upload errors, show them
+        if (!empty($errors)) {
+            $countries = $this->getCountries();
+            
+            $this->view('destinations/edit', [
+                'title' => 'Edit ' . $destination['name'],
+                'destination' => $destination,
+                'errors' => $errors,
+                'countries' => $countries
+            ]);
             return;
         }
         
@@ -305,15 +418,18 @@ class DestinationController extends Controller
         }
         
         // Update destination
-        $updated = $destinationModel->update($id, [
+        $updateData = [
             'name' => $name,
             'latitude' => $latitude,
             'longitude' => $longitude,
             'description' => $description,
             'privacy' => $privacy,
             'notes' => $notes,
-            'approval_status' => $approvalStatus
-        ]);
+            'approval_status' => $approvalStatus,
+            'image' => $imagePath
+        ];
+        
+        $updated = $destinationModel->update($id, $updateData);
           if (!$updated) {
             // Get countries for dropdown
             $countries = $this->getCountries();
@@ -341,8 +457,7 @@ class DestinationController extends Controller
         // Redirect to destination
         $this->redirect('/destinations/' . $id);
     }
-    
-    /**
+      /**
      * Delete destination
      * 
      * @param int $id
@@ -350,6 +465,9 @@ class DestinationController extends Controller
      */
     public function delete($id)
     {
+        // Validate CSRF token
+        $this->validateCSRF('/destinations/' . $id);
+        
         // Get destination
         $destinationModel = $this->model('Destination');
         $destination = $destinationModel->find($id);
@@ -371,15 +489,35 @@ class DestinationController extends Controller
             $_SESSION['error'] = 'Featured destinations cannot be deleted. Please contact an administrator if you need assistance.';
             $this->redirect('/destinations/' . $id);
             return;
-        }
-
-        // Delete destination
+        }        // Delete destination
         $deleted = $destinationModel->delete($id);
         
         if (!$deleted) {
             $_SESSION['error'] = 'Failed to delete destination';
             $this->redirect('/destinations/' . $id);
             return;
+        }
+        
+        // Delete associated image file if it exists
+        if ($destination['image'] && file_exists($destination['image'])) {
+            try {
+                unlink($destination['image']);
+                
+                // Log successful image deletion
+                $logModel = $this->model('Log');
+                $logModel::write('INFO', "Destination image deleted: {$destination['image']}", [
+                    'user_id' => $_SESSION['user_id'],
+                    'destination_id' => $id
+                ], 'FileUpload');
+            } catch (\Exception $e) {
+                // Log image deletion failure
+                $logModel = $this->model('Log');
+                $logModel::write('WARNING', "Failed to delete destination image: {$destination['image']}", [
+                    'user_id' => $_SESSION['user_id'],
+                    'destination_id' => $id,
+                    'error' => $e->getMessage()
+                ], 'FileUpload');
+            }
         }
         
         // Log the deletion

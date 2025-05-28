@@ -11,6 +11,125 @@ let quickCreateMarker = null;
 let selectedPosition = null;
 let googleMapsInitialized = false;
 
+/**
+ * Create enhanced SVG-based fallback markers instead of boring circles
+ * @param {string} markerType - Type of marker (visited, wishlist, featured, etc.)
+ * @returns {Object} Google Maps marker icon configuration
+ */
+function createEnhancedFallbackMarker(markerType) {
+    const markerConfigs = {
+        'visited': {
+            color: '#28a745',
+            gradient: 'linear-gradient(135deg, #28a745 0%, #1e7e34 100%)',
+            icon: 'M9 16 L14 21 L23 11', // checkmark path
+            iconType: 'path'
+        },
+        'wishlist': {
+            color: '#ffc107',
+            gradient: 'linear-gradient(135deg, #ffc107 0%, #ff8f00 100%)',
+            icon: 'M16 26.5 C16 26.5 7 19 7 13 C7 10.5 9 8.5 11.5 8.5 C13.5 8.5 15.5 10 16 12 C16.5 10 18.5 8.5 20.5 8.5 C23 8.5 25 10.5 25 13 C25 19 16 26.5 16 26.5 Z', // heart path
+            iconType: 'path'
+        },
+        'featured': {
+            color: '#ff6b35',
+            gradient: 'linear-gradient(135deg, #ff6b35 0%, #e55a2b 100%)',
+            icon: 'M16 6 L18.5 12.5 L25 12.5 L20 17 L22.5 24 L16 19.5 L9.5 24 L12 17 L7 12.5 L13.5 12.5 Z', // star path
+            iconType: 'path'
+        },
+        'planned': {
+            color: '#17a2b8',
+            gradient: 'linear-gradient(135deg, #17a2b8 0%, #138496 100%)',
+            icon: 'calendar', // special case
+            iconType: 'special'
+        },
+        'in_progress': {
+            color: '#007bff',
+            gradient: 'linear-gradient(135deg, #007bff 0%, #0056b3 100%)',
+            icon: 'M6 20 Q11 10 16 16 Q21 22 26 12', // route path
+            iconType: 'path'
+        },
+        'public': {
+            color: '#4285f4',
+            gradient: 'linear-gradient(135deg, #4285f4 0%, #1a73e8 100%)',
+            icon: 'globe', // special case
+            iconType: 'special'
+        }
+    };
+
+    const config = markerConfigs[markerType] || markerConfigs['public'];
+    
+    // Create SVG icon
+    let iconSvg = '';
+    if (config.iconType === 'path') {
+        iconSvg = `
+            <svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <linearGradient id="grad_${markerType}" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" style="stop-color:${config.color};stop-opacity:1" />
+                        <stop offset="100%" style="stop-color:${darkenColor(config.color, 20)};stop-opacity:1" />
+                    </linearGradient>
+                    <filter id="shadow_${markerType}">
+                        <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000000" flood-opacity="0.3"/>
+                    </filter>
+                </defs>
+                <circle cx="16" cy="16" r="14" fill="url(#grad_${markerType})" stroke="#ffffff" stroke-width="2" filter="url(#shadow_${markerType})"/>
+                <path d="${config.icon}" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        `;
+    } else if (config.iconType === 'special') {
+        if (config.icon === 'calendar') {
+            iconSvg = `
+                <svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="16" cy="16" r="14" fill="${config.color}" stroke="#ffffff" stroke-width="2"/>
+                    <rect x="10" y="9" width="12" height="14" rx="1" fill="none" stroke="#ffffff" stroke-width="1.5"/>
+                    <line x1="13" y1="7" x2="13" y2="11" stroke="#ffffff" stroke-width="1.5"/>
+                    <line x1="19" y1="7" x2="19" y2="11" stroke="#ffffff" stroke-width="1.5"/>
+                    <line x1="10" y1="13" x2="22" y2="13" stroke="#ffffff" stroke-width="1.5"/>
+                    <circle cx="14" cy="17" r="1" fill="#ffffff"/>
+                    <circle cx="16" cy="17" r="1" fill="#ffffff"/>
+                    <circle cx="18" cy="17" r="1" fill="#ffffff"/>
+                </svg>
+            `;
+        } else if (config.icon === 'globe') {
+            iconSvg = `
+                <svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="16" cy="16" r="14" fill="${config.color}" stroke="#ffffff" stroke-width="2"/>
+                    <circle cx="16" cy="16" r="8" fill="none" stroke="#ffffff" stroke-width="1.5"/>
+                    <path d="M8 16 Q16 10 24 16" fill="none" stroke="#ffffff" stroke-width="1.5"/>
+                    <path d="M8 16 Q16 22 24 16" fill="none" stroke="#ffffff" stroke-width="1.5"/>
+                    <line x1="16" y1="8" x2="16" y2="24" stroke="#ffffff" stroke-width="1.5"/>
+                </svg>
+            `;
+        }
+    }
+
+    // Convert SVG to data URL
+    const svgDataUrl = 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(iconSvg);
+    
+    return {
+        url: svgDataUrl,
+        scaledSize: new google.maps.Size(32, 32),
+        anchor: new google.maps.Point(16, 16)
+    };
+}
+
+/**
+ * Helper function to darken a color
+ * @param {string} color - Hex color string
+ * @param {number} percent - Percentage to darken
+ * @returns {string} Darkened hex color
+ */
+function darkenColor(color, percent) {
+    const num = parseInt(color.replace("#", ""), 16);
+    const amt = Math.round(2.55 * percent);
+    const R = (num >> 16) - amt;
+    const G = (num >> 8 & 0x00FF) - amt;
+    const B = (num & 0x0000FF) - amt;
+    return "#" + (0x1000000 + (R < 255 ? R < 1 ? 0 : R : 255) * 0x10000 +
+        (G < 255 ? G < 1 ? 0 : G : 255) * 0x100 +
+        (B < 255 ? B < 1 ? 0 : B : 255)).toString(16).slice(1);
+}
+
 // Google Maps initialization callback - Called when the script loads
 function initializeGoogleMaps() {
     // Enhanced initialization with better error handling
@@ -460,23 +579,13 @@ function handleMapClick(position, map) {
                 map: map,
                 title: 'New destination location',
                 content: markerElement
-            });
-        } else {
+            });        } else {
             // Fallback to legacy Marker for compatibility
             quickCreateMarker = new google.maps.Marker({
                 position: position,
                 map: map,
                 title: 'New destination location',
-                icon: {
-                    url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
-                        <svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
-                            <circle cx="16" cy="16" r="12" fill="#007bff" stroke="#ffffff" stroke-width="2"/>
-                            <text x="16" y="21" text-anchor="middle" fill="white" font-size="16" font-weight="bold">+</text>
-                        </svg>
-                    `),
-                    scaledSize: new google.maps.Size(32, 32),
-                    anchor: new google.maps.Point(16, 16)
-                },
+                icon: createEnhancedFallbackMarker('public'),
                 animation: google.maps.Animation.DROP
             });
         }
@@ -894,11 +1003,10 @@ function addNewDestinationToMap(destinationData, formData) {
     
     // Determine if this is a visited destination
     const isVisited = formData.visited === '1' || formData.visited === 1;
-    
-    // Create marker element for AdvancedMarkerElement
+      // Create marker element for AdvancedMarkerElement
     const markerElement = document.createElement('div');
     markerElement.innerHTML = `
-        <img src="/images/markers/${isVisited ? 'visited' : 'wishlist'}.png" 
+        <img src="/images/markers/${isVisited ? 'visited_enhanced' : 'wishlist_enhanced'}.svg" 
              style="width: 32px; height: 32px;" 
              alt="${isVisited ? 'Visited' : 'Wishlist'} destination"
              onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
@@ -940,32 +1048,24 @@ function addNewDestinationToMap(destinationData, formData) {
                 title: destinationData.name,
                 icon: isVisited ? visitedIcon : wishlistIcon
             });
-            
-            // Add error handling for marker icon loading
+              // Add error handling for marker icon loading
             marker.addListener('icon_changed', function() {
                 const img = new Image();
                 img.onerror = function() {
-                    const fallbackIcon = {
-                        path: google.maps.SymbolPath.CIRCLE,
-                        fillColor: isVisited ? '#28a745' : '#ffc107',
-                        fillOpacity: 0.8,
-                        scale: 8,
-                        strokeColor: '#ffffff',
-                        strokeWeight: 2
-                    };
+                    // Create attractive SVG fallback instead of boring circles
+                    const fallbackIcon = createEnhancedFallbackMarker(isVisited ? 'visited' : 'wishlist');
                     marker.setIcon(fallbackIcon);
                 };
                 img.src = (isVisited ? visitedIcon : wishlistIcon).url;
             });
-        }
-    } catch (error) {
+        }    } catch (error) {
         // Fallback to legacy marker
         const visitedIcon = {
-            url: '/images/markers/visited.png',
+            url: '/images/markers/visited_enhanced.svg',
             scaledSize: new google.maps.Size(32, 32)
         };
         const wishlistIcon = {
-            url: '/images/markers/wishlist.png',
+            url: '/images/markers/wishlist_enhanced.svg',
             scaledSize: new google.maps.Size(32, 32)
         };
         
@@ -975,19 +1075,12 @@ function addNewDestinationToMap(destinationData, formData) {
             title: destinationData.name,
             icon: isVisited ? visitedIcon : wishlistIcon
         });
-        
-        // Add error handling for marker icon loading
+          // Add error handling for marker icon loading
         marker.addListener('icon_changed', function() {
             const img = new Image();
             img.onerror = function() {
-                const fallbackIcon = {
-                    path: google.maps.SymbolPath.CIRCLE,
-                    fillColor: isVisited ? '#28a745' : '#ffc107',
-                    fillOpacity: 0.8,
-                    scale: 8,
-                    strokeColor: '#ffffff',
-                    strokeWeight: 2
-                };
+                // Create attractive SVG fallback instead of boring circles
+                const fallbackIcon = createEnhancedFallbackMarker(isVisited ? 'visited' : 'wishlist');
                 marker.setIcon(fallbackIcon);
             };
             img.src = (isVisited ? visitedIcon : wishlistIcon).url;

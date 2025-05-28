@@ -5,6 +5,7 @@ namespace App\Controllers;
 use App\Core\Controller;
 use App\Core\Request;
 use App\Core\Validator;
+use App\Core\FileUpload;
 
 class DashboardController extends Controller
 {
@@ -31,9 +32,8 @@ class DashboardController extends Controller
           // Get trip statistics
         $tripModel = $this->model('Trip');
         $tripStats = $tripModel->getUserStats($userId);
-        
-        // Get recent trips
-        $recentTrips = $tripModel->getUserTrips($userId, ['limit' => 5]);
+          // Get recent trips (unique by destination to avoid duplicates)
+        $recentTrips = $tripModel->getRecentTripsUnique($userId, 5);
         
         // Get badge progress
         $badges = $userModel->checkBadgeProgress($userId);
@@ -46,6 +46,9 @@ class DashboardController extends Controller
         
         // Get user's destinations with trip status for the map
         $userDestinations = $destinationModel->getUserDestinationsWithTripStatus($userId);
+        
+        // Get public destinations for the map
+        $publicDestinations = $destinationModel->getPublic();
         
         // Get countries for the modal
         $countries = $this->getCountries();
@@ -68,6 +71,7 @@ class DashboardController extends Controller
             'recentBadge' => $recentBadge,
             'featured' => $featured,
             'userDestinations' => $userDestinations,
+            'publicDestinations' => $publicDestinations,
             'countries' => $countries
         ]);
     }
@@ -102,35 +106,63 @@ class DashboardController extends Controller
      * Update user profile
      * 
      * @return void
-     */
-    public function updateProfile()
+     */    public function updateProfile()
     {
-        // Add debugging
-        error_log("DashboardController::updateProfile called");
-        
-        $userId = $_SESSION['user_id'];
-        
-        // Get form data
-        $name = $_POST['name'] ?? '';
-        $username = $_POST['username'] ?? '';
-        $email = $_POST['email'] ?? '';
-        $bio = $_POST['bio'] ?? '';
-        $website = $_POST['website'] ?? '';
-        $country = $_POST['country'] ?? '';
-        $currentPassword = $_POST['current_password'] ?? '';
-        $newPassword = $_POST['new_password'] ?? '';
-        $confirmPassword = $_POST['new_password_confirm'] ?? '';
-        $settings = $_POST['settings'] ?? [];
-        
-        // Debug form data
-        error_log("Form data received: " . print_r($_POST, true));
-        
-        // Get user data
-        $userModel = $this->model('User');
-        $user = $userModel->find($userId);
-        
-        // Validate form data
-        $errors = [];
+        try {
+            // Add debugging
+            error_log("DashboardController::updateProfile called");
+            
+            $userId = $_SESSION['user_id'];
+            
+            // Validate CSRF token
+            $this->validateCSRF('/profile');
+            
+            // Get form data
+            $name = $_POST['name'] ?? '';
+            $username = $_POST['username'] ?? '';
+            $email = $_POST['email'] ?? '';
+            $bio = $_POST['bio'] ?? '';
+            $website = $_POST['website'] ?? '';
+            $country = $_POST['country'] ?? '';
+            $currentPassword = $_POST['current_password'] ?? '';
+            $newPassword = $_POST['new_password'] ?? '';
+            $confirmPassword = $_POST['new_password_confirm'] ?? '';
+            $settings = $_POST['settings'] ?? [];
+            
+            // Debug form data
+            error_log("Form data received: " . print_r($_POST, true));
+              // Get user data
+            $userModel = $this->model('User');
+            $user = $userModel->find($userId);
+            
+            // Validate form data
+            $errors = [];
+            
+            // Handle avatar upload securely with error handling
+            $avatarFilename = null;
+            if (isset($_FILES['avatar']) && $_FILES['avatar']['error'] !== UPLOAD_ERR_NO_FILE) {
+                try {
+                    $fileUpload = new FileUpload();
+                    $avatarFilename = $fileUpload->uploadImage($_FILES['avatar'], 'avatars', $userId);
+                    
+                    if (!$avatarFilename) {
+                        $errors = array_merge($errors, $fileUpload->getErrors());
+                    } else {
+                        // Delete old avatar if exists (explicit file cleanup)
+                        if (!empty($user['avatar'])) {
+                            $oldAvatarPath = 'public/images/avatars/' . $user['avatar'];
+                            if (file_exists($oldAvatarPath)) {
+                                unlink($oldAvatarPath); // Explicit file cleanup
+                            }
+                            // Also use FileUpload method for secure deletion
+                            $fileUpload->deleteFile($user['avatar'], 'avatars', $userId);
+                        }
+                    }
+                } catch (\Exception $e) {
+                    $errors['avatar'] = 'Avatar upload failed: ' . $e->getMessage();
+                    error_log("Avatar upload error: " . $e->getMessage());
+                }
+            }
         
         // Validate name
         if (empty($name)) {
@@ -205,8 +237,7 @@ class DashboardController extends Controller
                 'errors' => $errors
             ]);
             return;
-        }
-          // Update user data
+        }        // Update user data
         $userData = [
             'name' => $name,
             'username' => $username,
@@ -215,6 +246,11 @@ class DashboardController extends Controller
             'website' => $website,
             'country' => $country
         ];
+        
+        // Add avatar filename if uploaded
+        if ($avatarFilename) {
+            $userData['avatar'] = $avatarFilename;
+        }
         
         // Handle settings as JSON
         if (!empty($settings)) {
@@ -256,8 +292,7 @@ class DashboardController extends Controller
             ]);
             return;
         }
-        
-        // Log the profile update
+          // Log the profile update
         $logModel = $this->model('Log');
         $logModel::write('INFO', "User profile updated: {$username}", [
             'user_id' => $userId
@@ -269,5 +304,29 @@ class DashboardController extends Controller
         error_log("Profile update successful - redirecting with success message");
         $_SESSION['success'] = 'Profile updated successfully';
         $this->redirect('/profile');
+        
+        } catch (\Exception $e) {
+            // Handle any unexpected errors
+            error_log("Profile update error: " . $e->getMessage());
+            
+            // Get user data for error display
+            $userModel = $this->model('User');
+            $user = $userModel->find($userId);
+            
+            // Get user badges
+            $badgeModel = $this->model('Badge');
+            $badges = $badgeModel->getUserBadges($userId);
+            
+            // Get countries as associative array for dropdown
+            $countries = $this->getCountries();
+            
+            $this->view('dashboard/profile', [
+                'title' => 'My Profile',
+                'user' => $user,
+                'badges' => $badges,
+                'countries' => $countries,
+                'errors' => ['update' => 'An unexpected error occurred while updating your profile.']
+            ]);
+        }
     }
 }

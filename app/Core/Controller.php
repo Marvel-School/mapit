@@ -126,13 +126,28 @@ class Controller
     /**
      * Require authentication to access a page
      * 
-     * @param string $redirect
      * @return void
      */
-    public function requireLogin($redirect = '/login')
+    public function requireLogin()
     {
-        if (!$this->isLoggedIn()) {
-            $this->redirect($redirect);
+        // Initialize secure session
+        self::initializeSecureSession();
+        
+        if (!isset($_SESSION['user_id']) || !isset($_SESSION['username'])) {
+            $_SESSION['redirect_after_login'] = $_SERVER['REQUEST_URI'] ?? '/';
+            $this->redirect('/login');
+            exit();
+        }
+        
+        // Additional security check - verify user still exists and is active
+        $userModel = $this->model('User');
+        $user = $userModel->find($_SESSION['user_id']);
+        
+        if (!$user || $user['status'] !== 'active') {
+            session_destroy();
+            session_start();
+            $this->redirect('/login');
+            exit();
         }
     }
     
@@ -217,5 +232,190 @@ class Controller
         }
 
         return $countries;
+    }
+
+    /**
+     * Validate CSRF token
+     * 
+     * @param string $redirect
+     * @return void
+     */
+    public function validateCSRF($redirect = null)
+    {
+        $token = $_POST['csrf_token'] ?? '';
+        
+        if (!View::verifyCSRF($token)) {
+            $_SESSION['error'] = 'Invalid security token. Please try again.';
+            
+            if ($redirect) {
+                $this->redirect($redirect);
+            } else {
+                // Get referring page or default to home
+                $referer = $_SERVER['HTTP_REFERER'] ?? '/';
+                $this->redirect($referer);
+            }
+            exit();
+        }
+    }
+
+    /**
+     * Validate input against XSS and injection attacks
+     * 
+     * @param mixed $data
+     * @return mixed
+     */
+    protected function sanitizeInput($data)
+    {
+        if (is_array($data)) {
+            foreach ($data as $key => $value) {
+                $data[$key] = $this->sanitizeInput($value);
+            }
+            return $data;
+        }
+        
+        // Remove null bytes and normalize newlines
+        $data = str_replace(chr(0), '', $data);
+        $data = str_replace(["\r\n", "\r"], "\n", $data);
+        
+        // Trim whitespace
+        $data = trim($data);
+        
+        return $data;
+    }
+    
+    /**
+     * Validate and sanitize numeric input
+     * 
+     * @param mixed $value
+     * @param float|null $min
+     * @param float|null $max
+     * @return float|false
+     */
+    protected function validateNumeric($value, $min = null, $max = null)
+    {
+        if (!is_numeric($value)) {
+            return false;
+        }
+        
+        $numValue = (float)$value;
+        
+        if ($min !== null && $numValue < $min) {
+            return false;
+        }
+        
+        if ($max !== null && $numValue > $max) {
+            return false;
+        }
+        
+        return $numValue;
+    }
+    
+    /**
+     * Rate limiting check
+     * 
+     * @param string $action
+     * @param int $maxAttempts
+     * @param int $timeWindow
+     * @return bool
+     */
+    protected function checkRateLimit($action, $maxAttempts = 5, $timeWindow = 300)
+    {
+        $key = $action . '_' . ($_SERVER['REMOTE_ADDR'] ?? 'unknown');
+        
+        if (!isset($_SESSION['rate_limits'])) {
+            $_SESSION['rate_limits'] = [];
+        }
+        
+        $now = time();
+        
+        // Clean old entries
+        if (isset($_SESSION['rate_limits'][$key])) {
+            $_SESSION['rate_limits'][$key] = array_filter(
+                $_SESSION['rate_limits'][$key], 
+                function($timestamp) use ($now, $timeWindow) {
+                    return ($now - $timestamp) < $timeWindow;
+                }
+            );
+        } else {
+            $_SESSION['rate_limits'][$key] = [];
+        }
+        
+        // Check if rate limit exceeded
+        if (count($_SESSION['rate_limits'][$key]) >= $maxAttempts) {
+            return false;
+        }
+        
+        // Add current attempt
+        $_SESSION['rate_limits'][$key][] = $now;
+        
+        return true;
+    }
+
+    /**
+     * Initialize secure session configuration
+     * 
+     * @return void
+     */
+    public static function initializeSecureSession()
+    {
+        // Configure session security settings
+        ini_set('session.cookie_httponly', 1);
+        ini_set('session.cookie_secure', isset($_SERVER['HTTPS']) ? 1 : 0);
+        ini_set('session.cookie_samesite', 'Strict');
+        ini_set('session.use_strict_mode', 1);
+        ini_set('session.cookie_lifetime', 0); // Session cookies only
+        
+        // Set session name
+        session_name('MAPIT_SESSION');
+        
+        // Start session if not already started
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        
+        // Regenerate session ID periodically for security
+        if (!isset($_SESSION['last_regeneration'])) {
+            $_SESSION['last_regeneration'] = time();
+        } elseif (time() - $_SESSION['last_regeneration'] > 300) { // 5 minutes
+            session_regenerate_id(true);
+            $_SESSION['last_regeneration'] = time();
+        }
+        
+        // Validate session integrity
+        self::validateSessionIntegrity();
+    }
+    
+    /**
+     * Validate session integrity and detect hijacking
+     * 
+     * @return void
+     */
+    protected static function validateSessionIntegrity()
+    {
+        // Check if user agent changed (possible session hijacking)
+        $currentUserAgent = $_SERVER['HTTP_USER_AGENT'] ?? '';
+        
+        if (isset($_SESSION['user_agent'])) {
+            if ($_SESSION['user_agent'] !== $currentUserAgent) {
+                // Possible session hijacking - destroy session
+                session_destroy();
+                session_start();
+                return;
+            }
+        } else {
+            $_SESSION['user_agent'] = $currentUserAgent;
+        }
+        
+        // Check for session timeout
+        if (isset($_SESSION['last_activity'])) {
+            $timeout = 1800; // 30 minutes
+            if (time() - $_SESSION['last_activity'] > $timeout) {
+                session_destroy();
+                session_start();
+                return;
+            }
+        }
+        
+        $_SESSION['last_activity'] = time();
     }
 }

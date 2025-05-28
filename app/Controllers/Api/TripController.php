@@ -8,40 +8,72 @@ use Exception;
 class TripController extends Controller
 {
     /**
-     * Create or update a trip
+     * Create or update a trip with comprehensive security and validation
      * 
      * @return void
      */
     public function store()
     {
-        // Check if user is logged in
-        if (!isset($_SESSION['user_id'])) {
-            http_response_code(401);
-            echo json_encode(['success' => false, 'message' => 'Unauthorized']);
-            return;
-        }
-        
-        // Get JSON input
-        $input = json_decode(file_get_contents('php://input'), true);
-        
-        if (!$input) {
-            http_response_code(400);
-            echo json_encode(['success' => false, 'message' => 'Invalid JSON']);
-            return;
-        }
-        
-        $destinationId = $input['destination_id'] ?? null;
-        $status = $input['status'] ?? 'planned';
-        $type = $input['type'] ?? 'adventure';
-        
-        if (!$destinationId) {
-            http_response_code(400);
-            echo json_encode(['success' => false, 'message' => 'Destination ID is required']);
-            return;
-        }
-        
         try {
+            // Initialize secure session
+            self::initializeSecureSession();
+            
+            // Check authentication
+            if (!isset($_SESSION['user_id'])) {
+                $this->jsonError('Unauthorized', 401);
+                return;
+            }
+            
+            // Rate limiting for API calls
+            if (!$this->checkRateLimit('api_trip_store', 10, 60)) { // 10 per minute
+                $this->jsonError('Too many requests. Please slow down.', 429);
+                return;
+            }
+            
+            // Get and validate JSON input
+            $input = json_decode(file_get_contents('php://input'), true);
+            
+            if (!$input || json_last_error() !== JSON_ERROR_NONE) {
+                $this->jsonError('Invalid JSON data', 400);
+                return;
+            }
+            
+            // Sanitize and validate input
+            $destinationId = $this->validateNumeric($input['destination_id'] ?? null, 1);
+            $status = $this->sanitizeInput($input['status'] ?? 'planned');
+            $type = $this->sanitizeInput($input['type'] ?? 'adventure');
+            
+            if (!$destinationId) {
+                $this->jsonError('Valid destination ID is required', 400);
+                return;
+            }
+            
+            // Validate status and type values
+            if (!in_array($status, ['planned', 'visited'])) {
+                $this->jsonError('Invalid status. Must be planned or visited', 400);
+                return;
+            }
+            
+            if (!in_array($type, ['adventure', 'business', 'leisure', 'cultural', 'nature'])) {
+                $this->jsonError('Invalid trip type', 400);
+                return;
+            }
+            
             $tripModel = $this->model('Trip');
+            $destinationModel = $this->model('Destination');
+            
+            // Verify destination exists and user has access
+            $destination = $destinationModel->find($destinationId);
+            if (!$destination) {
+                $this->jsonError('Destination not found', 404);
+                return;
+            }
+            
+            // Check if user has permission to access this destination
+            if ($destination['privacy'] === 'private' && $destination['user_id'] != $_SESSION['user_id']) {
+                $this->jsonError('Access denied to private destination', 403);
+                return;
+            }
             
             // Check if trip already exists for this user and destination
             $existingTrip = $tripModel->findUserDestinationTrip($_SESSION['user_id'], $destinationId);
@@ -50,214 +82,249 @@ class TripController extends Controller
                 // Update existing trip
                 $result = $tripModel->update($existingTrip['id'], [
                     'status' => $status,
-                    'type' => $type,
-                    'updated_at' => date('Y-m-d H:i:s')
+                    'type' => $type
                 ]);
+                
+                if ($result) {
+                    // Log the update
+                    $logModel = $this->model('Log');
+                    $logModel::write('INFO', "Trip updated via API for {$destination['name']}", [
+                        'user_id' => $_SESSION['user_id'],
+                        'trip_id' => $existingTrip['id'],
+                        'destination_id' => $destinationId,
+                        'status' => $status,
+                        'type' => $type
+                    ], 'API');
+                    
+                    $this->json([
+                        'success' => true,
+                        'message' => 'Trip updated successfully',
+                        'trip' => array_merge($existingTrip, ['status' => $status, 'type' => $type])
+                    ]);
+                } else {
+                    $this->jsonError('Failed to update trip', 500);
+                }
             } else {
                 // Create new trip
-                $result = $tripModel->create([
+                $tripId = $tripModel->create([
                     'user_id' => $_SESSION['user_id'],
                     'destination_id' => $destinationId,
                     'status' => $status,
                     'type' => $type
                 ]);
+                
+                if ($tripId) {
+                    // Check for badges
+                    $tripModel->checkBadges($_SESSION['user_id']);
+                    
+                    // Log the creation
+                    $logModel = $this->model('Log');
+                    $logModel::write('INFO', "Trip created via API for {$destination['name']}", [
+                        'user_id' => $_SESSION['user_id'],
+                        'trip_id' => $tripId,
+                        'destination_id' => $destinationId,
+                        'status' => $status,
+                        'type' => $type
+                    ], 'API');
+                    
+                    $this->json([
+                        'success' => true,
+                        'message' => 'Trip created successfully',
+                        'trip' => [
+                            'id' => $tripId,
+                            'destination_id' => $destinationId,
+                            'status' => $status,
+                            'type' => $type
+                        ]
+                    ]);
+                } else {
+                    $this->jsonError('Failed to create trip', 500);
+                }
             }
             
-            if ($result) {
-                echo json_encode(['success' => true, 'message' => 'Trip updated successfully']);
-            } else {
-                http_response_code(500);
-                echo json_encode(['success' => false, 'message' => 'Failed to update trip']);
-            }
+        } catch (\Exception $e) {
+            // Log the error
+            $logModel = $this->model('Log');
+            $logModel::write('ERROR', 'API Trip store error: ' . $e->getMessage(), [
+                'user_id' => $_SESSION['user_id'] ?? null,
+                'destination_id' => $destinationId ?? null,
+                'trace' => $e->getTraceAsString()
+            ], 'API');
             
-        } catch (Exception $e) {
-            http_response_code(500);
-            echo json_encode(['success' => false, 'message' => 'Server error: ' . $e->getMessage()]);
+            $this->jsonError('An error occurred while processing your request', 500);
         }
     }
     
     /**
-     * Update trip status
+     * Delete a trip with security validation
      * 
-     * @param int $id
      * @return void
      */
-    public function update($id)
+    public function delete()
     {
-        // Check if user is logged in
-        if (!isset($_SESSION['user_id'])) {
-            http_response_code(401);
-            echo json_encode(['success' => false, 'message' => 'Unauthorized']);
-            return;
-        }
-        
-        // Get JSON input
-        $input = json_decode(file_get_contents('php://input'), true);
-        
-        if (!$input) {
-            http_response_code(400);
-            echo json_encode(['success' => false, 'message' => 'Invalid JSON']);
-            return;
-        }
-        
         try {
-            $tripModel = $this->model('Trip');
+            // Initialize secure session
+            self::initializeSecureSession();
             
-            // Verify trip belongs to current user
-            $trip = $tripModel->find($id);
-            if (!$trip || $trip['user_id'] != $_SESSION['user_id']) {
-                http_response_code(404);
-                echo json_encode(['success' => false, 'message' => 'Trip not found']);
+            // Check authentication
+            if (!isset($_SESSION['user_id'])) {
+                $this->jsonError('Unauthorized', 401);
                 return;
             }
             
-            $updateData = [];
-            if (isset($input['status'])) {
-                $updateData['status'] = $input['status'];
-            }
-            if (isset($input['type'])) {
-                $updateData['type'] = $input['type'];
+            // Rate limiting
+            if (!$this->checkRateLimit('api_trip_delete', 20, 60)) { // 20 per minute
+                $this->jsonError('Too many requests. Please slow down.', 429);
+                return;
             }
             
-            $updateData['updated_at'] = date('Y-m-d H:i:s');
+            // Get and validate JSON input
+            $input = json_decode(file_get_contents('php://input'), true);
             
-            $result = $tripModel->update($id, $updateData);
+            if (!$input || json_last_error() !== JSON_ERROR_NONE) {
+                $this->jsonError('Invalid JSON data', 400);
+                return;
+            }
+            
+            $destinationId = $this->validateNumeric($input['destination_id'] ?? null, 1);
+            
+            if (!$destinationId) {
+                $this->jsonError('Valid destination ID is required', 400);
+                return;
+            }
+            
+            $tripModel = $this->model('Trip');
+            
+            // Find the trip
+            $trip = $tripModel->findUserDestinationTrip($_SESSION['user_id'], $destinationId);
+            
+            if (!$trip) {
+                $this->jsonError('Trip not found', 404);
+                return;
+            }
+            
+            // Delete the trip
+            $result = $tripModel->delete($trip['id']);
             
             if ($result) {
-                echo json_encode(['success' => true, 'message' => 'Trip updated successfully']);
+                // Log the deletion
+                $logModel = $this->model('Log');
+                $logModel::write('INFO', "Trip deleted via API", [
+                    'user_id' => $_SESSION['user_id'],
+                    'trip_id' => $trip['id'],
+                    'destination_id' => $destinationId
+                ], 'API');
+                
+                $this->json([
+                    'success' => true,
+                    'message' => 'Trip deleted successfully'
+                ]);
             } else {
-                http_response_code(500);
-                echo json_encode(['success' => false, 'message' => 'Failed to update trip']);
+                $this->jsonError('Failed to delete trip', 500);
             }
             
-        } catch (Exception $e) {
-            http_response_code(500);
-            echo json_encode(['success' => false, 'message' => 'Server error: ' . $e->getMessage()]);
+        } catch (\Exception $e) {
+            // Log the error
+            $logModel = $this->model('Log');
+            $logModel::write('ERROR', 'API Trip delete error: ' . $e->getMessage(), [
+                'user_id' => $_SESSION['user_id'] ?? null,
+                'destination_id' => $destinationId ?? null,
+                'trace' => $e->getTraceAsString()
+            ], 'API');
+            
+            $this->jsonError('An error occurred while processing your request', 500);
         }
     }
     
     /**
-     * Delete a trip
+     * Get user trips with filtering and pagination
      * 
-     * @param int $id
      * @return void
      */
-    public function delete($id)
+    public function index()
     {
-        // Check if user is logged in
-        if (!isset($_SESSION['user_id'])) {
-            http_response_code(401);
-            echo json_encode(['success' => false, 'message' => 'Unauthorized']);
-            return;
-        }
-        
         try {
-            $tripModel = $this->model('Trip');
+            // Initialize secure session
+            self::initializeSecureSession();
             
-            // Verify trip belongs to current user
-            $trip = $tripModel->find($id);
-            if (!$trip || $trip['user_id'] != $_SESSION['user_id']) {
-                http_response_code(404);
-                echo json_encode(['success' => false, 'message' => 'Trip not found']);
+            // Check authentication
+            if (!isset($_SESSION['user_id'])) {
+                $this->jsonError('Unauthorized', 401);
                 return;
             }
             
-            $result = $tripModel->delete($id);
-            
-            if ($result) {
-                echo json_encode(['success' => true, 'message' => 'Trip deleted successfully']);
-            } else {
-                http_response_code(500);
-                echo json_encode(['success' => false, 'message' => 'Failed to delete trip']);
+            // Rate limiting
+            if (!$this->checkRateLimit('api_trip_index', 30, 60)) { // 30 per minute
+                $this->jsonError('Too many requests. Please slow down.', 429);
+                return;
             }
             
-        } catch (Exception $e) {
-            http_response_code(500);
-            echo json_encode(['success' => false, 'message' => 'Server error: ' . $e->getMessage()]);
+            // Get query parameters
+            $status = $this->sanitizeInput($_GET['status'] ?? null);
+            $type = $this->sanitizeInput($_GET['type'] ?? null);
+            $page = max(1, intval($_GET['page'] ?? 1));
+            $perPage = min(50, max(1, intval($_GET['per_page'] ?? 10))); // Limit to 50 per page
+            
+            // Validate filters
+            if ($status && !in_array($status, ['planned', 'visited'])) {
+                $this->jsonError('Invalid status filter', 400);
+                return;
+            }
+            
+            if ($type && !in_array($type, ['adventure', 'business', 'leisure', 'cultural', 'nature'])) {
+                $this->jsonError('Invalid type filter', 400);
+                return;
+            }
+            
+            $tripModel = $this->model('Trip');
+            
+            // Get trips with filters
+            $trips = $tripModel->getUserTrips($_SESSION['user_id'], [
+                'status' => $status,
+                'type' => $type,
+                'page' => $page,
+                'per_page' => $perPage
+            ]);
+            
+            // Get total count
+            $totalTrips = $tripModel->getUserTripsCount($_SESSION['user_id'], [
+                'status' => $status,
+                'type' => $type
+            ]);
+            
+            $this->json([
+                'success' => true,
+                'trips' => $trips,
+                'pagination' => [
+                    'current_page' => $page,
+                    'per_page' => $perPage,
+                    'total' => $totalTrips,
+                    'total_pages' => ceil($totalTrips / $perPage)
+                ]
+            ]);
+            
+        } catch (\Exception $e) {
+            // Log the error
+            $logModel = $this->model('Log');
+            $logModel::write('ERROR', 'API Trip index error: ' . $e->getMessage(), [
+                'user_id' => $_SESSION['user_id'] ?? null,
+                'trace' => $e->getTraceAsString()
+            ], 'API');
+            
+            $this->jsonError('An error occurred while processing your request', 500);
         }
     }
     
     /**
-     * Start a planned trip
+     * Helper method to send JSON error response
      * 
-     * @param int $id Trip ID
+     * @param string $message
+     * @param int $code
      * @return void
      */
-    public function start($id)
+    protected function jsonError($message, $code = 400)
     {
-        // Check if user is logged in
-        if (!isset($_SESSION['user_id'])) {
-            http_response_code(401);
-            echo json_encode(['success' => false, 'message' => 'Unauthorized']);
-            return;
-        }
-        
-        try {
-            $tripModel = $this->model('Trip');
-            $trip = $tripModel->findById($id);
-            
-            if (!$trip || $trip['user_id'] != $_SESSION['user_id']) {
-                http_response_code(404);
-                echo json_encode(['success' => false, 'message' => 'Trip not found']);
-                return;
-            }
-            
-            $result = $tripModel->update($id, ['status' => 'in_progress']);
-            
-            if ($result) {
-                // Redirect back to trips page
-                header('Location: /trips?message=Trip started successfully');
-                exit;
-            } else {
-                http_response_code(500);
-                echo json_encode(['success' => false, 'message' => 'Failed to start trip']);
-            }
-            
-        } catch (Exception $e) {
-            http_response_code(500);
-            echo json_encode(['success' => false, 'message' => 'Server error: ' . $e->getMessage()]);
-        }
-    }
-    
-    /**
-     * Complete an in-progress trip
-     * 
-     * @param int $id Trip ID
-     * @return void
-     */
-    public function complete($id)
-    {
-        // Check if user is logged in
-        if (!isset($_SESSION['user_id'])) {
-            http_response_code(401);
-            echo json_encode(['success' => false, 'message' => 'Unauthorized']);
-            return;
-        }
-        
-        try {
-            $tripModel = $this->model('Trip');
-            $trip = $tripModel->findById($id);
-            
-            if (!$trip || $trip['user_id'] != $_SESSION['user_id']) {
-                http_response_code(404);
-                echo json_encode(['success' => false, 'message' => 'Trip not found']);
-                return;
-            }
-            
-            $result = $tripModel->update($id, ['status' => 'completed']);
-            
-            if ($result) {
-                // Redirect back to trips page
-                header('Location: /trips?message=Trip completed successfully! Check your badges for new achievements.');
-                exit;
-            } else {
-                http_response_code(500);
-                echo json_encode(['success' => false, 'message' => 'Failed to complete trip']);
-            }
-            
-        } catch (Exception $e) {
-            http_response_code(500);
-            echo json_encode(['success' => false, 'message' => 'Server error: ' . $e->getMessage()]);
-        }
+        http_response_code($code);
+        echo json_encode(['success' => false, 'message' => $message]);
     }
 }

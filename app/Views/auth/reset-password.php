@@ -11,8 +11,9 @@
                         <h1 class="h3">Reset Password</h1>
                         <p class="text-muted">Enter your new password below</p>
                     </div>
-                    
-                    <form action="/reset-password" method="POST">
+                      <form action="/reset-password" method="POST">
+                        <?= \App\Core\View::csrfField(); ?>
+                        
                         <?php if (isset($error)): ?>
                             <div class="alert alert-danger mb-4">
                                 <?= $error; ?>

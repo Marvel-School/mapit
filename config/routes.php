@@ -89,8 +89,11 @@ $this->get('admin/destinations/{id}', 'Admin\DestinationController', 'show');
 $this->post('admin/destinations/{id}/approve', 'Admin\DestinationController', 'approve');
 $this->post('admin/destinations/{id}/reject', 'Admin\DestinationController', 'reject');
 $this->post('admin/destinations/{id}/status', 'Admin\DestinationController', 'status');
+$this->delete('admin/destinations/{id}', 'Admin\DestinationController', 'delete');
 
 $this->get('admin/logs', 'Admin\LogController', 'index');
+$this->post('admin/logs/clear', 'Admin\LogController', 'clear');
+$this->delete('admin/logs/{id}', 'Admin\LogController', 'delete');
 
 // Debug Routes (disabled for production)
 // $this->post('api/debug/log', 'DebugController', 'log');

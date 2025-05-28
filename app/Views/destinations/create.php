@@ -8,14 +8,15 @@
             <div class="card border-0 shadow">
                 <div class="card-header bg-white py-3">
                     <h4 class="mb-0">Add New Destination</h4>
-                </div>
-                <div class="card-body">
+                </div>                <div class="card-body">
                     <form action="/destinations" method="POST" enctype="multipart/form-data">
+                        <?= \App\Core\View::csrfField(); ?>
+                        
                         <?php if (isset($errors) && !empty($errors)): ?>
                             <div class="alert alert-danger">
                                 <ul class="mb-0">
                                     <?php foreach ($errors as $error): ?>
-                                        <li><?= $error; ?></li>
+                                        <li><?= htmlspecialchars($error); ?></li>
                                     <?php endforeach; ?>
                                 </ul>
                             </div>
@@ -82,12 +83,22 @@
                             <label for="description" class="form-label">Description</label>
                             <textarea class="form-control" id="description" name="description" rows="4"><?= htmlspecialchars($destination['description'] ?? ''); ?></textarea>
                         </div>
-                        
-                        <div class="row mb-3">
+                          <div class="row mb-3">
                             <div class="col-md-6">
-                                <label for="image" class="form-label">Image</label>
-                                <input type="file" class="form-control" id="image" name="image">
-                                <div class="form-text">Optional. Max file size: 2MB. Supported formats: JPG, PNG.</div>
+                                <label for="image" class="form-label">Destination Image</label>
+                                <input type="file" class="form-control" id="image" name="image" accept="image/jpeg,image/png,image/gif,image/webp">
+                                <div class="form-text">
+                                    <strong>Security requirements:</strong><br>
+                                    • Max file size: 5MB<br>
+                                    • Allowed formats: JPG, PNG, GIF, WebP<br>
+                                    • Images will be automatically processed for security<br>
+                                    • EXIF data will be removed for privacy
+                                </div>
+                                <?php if (isset($errors['image'])): ?>
+                                    <div class="text-danger small mt-1">
+                                        <i class="fas fa-exclamation-triangle"></i> <?= htmlspecialchars($errors['image']); ?>
+                                    </div>
+                                <?php endif; ?>
                             </div>
                             
                             <div class="col-md-6 visit-date-container" style="<?= isset($destination['visited']) && $destination['visited'] == 1 ? '' : 'display: none;' ?>">
@@ -296,10 +307,12 @@ document.addEventListener('DOMContentLoaded', function() {
         latInput.value = position.lat.toFixed(6);
         lngInput.value = position.lng.toFixed(6);
     }
-    
-    if (mapElement) {
+      if (mapElement) {
         // Initialize map when the page is loaded
         initMap();
     }
 });
 </script>
+
+<!-- Secure Upload Validation -->
+<script src="/js/secure-upload.js"></script>

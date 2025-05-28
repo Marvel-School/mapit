@@ -10,14 +10,17 @@ class Database
     private static $instance = null;
     private $connection;
     private $statement;
-    private $error;    private function __construct()
+    private $error;    
+    
+    private function __construct()
     {
         // Initialize logger
         $logFile = __DIR__ . '/../../storage/logs/database.log';
         Logger::setLogFile($logFile);
         
         // Get database configuration
-        $dbHost = getenv('DB_HOST') ?: 'mysql';        $dbName = getenv('DB_DATABASE') ?: 'mapit';
+        $dbHost = getenv('DB_HOST') ?: 'mysql';        
+        $dbName = getenv('DB_DATABASE') ?: 'mapit';
         $dbUser = getenv('DB_USERNAME') ?: 'mapit_user';
         $dbPass = getenv('DB_PASSWORD') ?: 'mapit_password';
         $dbCharset = getenv('DB_CHARSET') ?: 'utf8mb4';
@@ -51,7 +54,8 @@ class Database
                 'exception' => get_class($e),
                 'code' => $e->getCode(),
                 'trace' => $e->getTraceAsString()
-            ]);        }
+            ]);        
+        }
     }
     
     // Singleton pattern - Get database instance
@@ -83,29 +87,76 @@ class Database
         return $this->error;
     }
     
-    // Prepare statement with query
-    public function query($sql)
+    /**
+     * Prepare and execute a database query with security validation
+     * 
+     * @param string $query
+     * @return Database
+     */
+    public function query($query)
     {
-        if ($this->connection === null) {
-            $errorMsg = 'Database connection failed: ' . $this->error;
-            Logger::error($errorMsg);
-            throw new \Exception($errorMsg);
+        // Log all queries for security monitoring in development
+        if (getenv('APP_DEBUG') === 'true') {
+            error_log("SQL Query: " . $query);
         }
-          try {
-            $this->statement = $this->connection->prepare($sql);
-            return $this;
-        } catch (PDOException $e) {
-            $errorMsg = 'SQL Preparation Error: ' . $e->getMessage();
-            Logger::error($errorMsg, [
-                'sql' => $sql,
-                'exception' => get_class($e),
-                'code' => $e->getCode()
-            ]);
-            throw new \Exception($errorMsg, 0, $e);
+        
+        // Validate query for dangerous patterns
+        $this->validateQuerySecurity($query);
+        
+        if ($this->connection) {
+            $this->statement = $this->connection->prepare($query);
+        }
+        
+        return $this;
+    }
+    
+    /**
+     * Validate query for potential SQL injection patterns
+     * 
+     * @param string $query
+     * @throws \Exception
+     * @return void
+     */
+    protected function validateQuerySecurity($query)
+    {
+        // Remove comments and normalize whitespace
+        $normalizedQuery = preg_replace('/\/\*.*?\*\//', '', $query);
+        $normalizedQuery = preg_replace('/--.*$/', '', $normalizedQuery);
+        $normalizedQuery = preg_replace('/\s+/', ' ', $normalizedQuery);
+        $normalizedQuery = strtolower(trim($normalizedQuery));
+        
+        // Check for dangerous patterns
+        $dangerousPatterns = [
+            '/union\s+select/i',
+            '/;\s*(drop|delete|truncate|alter|create)\s+/i',
+            '/\'\s*;\s*(drop|delete|truncate|alter|create)\s+/i',
+            '/\/\*.*?\*\//i',
+            '/--\s*.*/i',
+            '/xp_cmdshell/i',
+            '/sp_executesql/i'
+        ];
+        
+        foreach ($dangerousPatterns as $pattern) {
+            if (preg_match($pattern, $normalizedQuery)) {
+                // Log security violation
+                Logger::error("SECURITY ALERT: Potentially dangerous SQL pattern detected", [
+                    'query' => $query,
+                    'pattern' => $pattern,
+                    'ip' => $_SERVER['REMOTE_ADDR'] ?? 'unknown'
+                ]);
+                throw new \Exception("Query contains potentially dangerous patterns");
+            }
         }
     }
-
-    // Bind values
+    
+    /**
+     * Bind parameters with enhanced validation
+     * 
+     * @param string $param
+     * @param mixed $value
+     * @param int|null $type
+     * @return void
+     */
     public function bind($param, $value, $type = null)
     {
         if (is_null($type)) {
@@ -123,41 +174,106 @@ class Database
                     $type = PDO::PARAM_STR;
             }
         }
+        
+        // Additional validation for string parameters
+        if ($type === PDO::PARAM_STR && is_string($value)) {
+            // Remove null bytes
+            $value = str_replace(chr(0), '', $value);
+            
+            // Validate UTF-8 encoding
+            if (!mb_check_encoding($value, 'UTF-8')) {
+                throw new \Exception("Invalid UTF-8 encoding in parameter: " . $param);
+            }
+        }
+        
+        if ($this->statement) {
+            $this->statement->bindValue($param, $value, $type);
+        }
+    }
+    
+    /**
+     * Transaction wrapper with automatic rollback on failure
+     * 
+     * @param callable $callback
+     * @return mixed
+     * @throws \Exception
+     */
+    public function transaction($callback)
+    {
+        if (!$this->connection) {
+            throw new \Exception('Database connection failed: ' . $this->error);
+        }
+        
+        try {
+            $this->connection->beginTransaction();
+            $result = $callback($this);
+            $this->connection->commit();
+            return $result;
+        } catch (\Exception $e) {
+            $this->connection->rollBack();
+            // Log transaction failure
+            Logger::error("Transaction failed", [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            throw $e;
+        }
+    }
 
-        $this->statement->bindValue($param, $value, $type);
-        return $this;
-    }    // Execute the prepared statement
+    /**
+     * Execute the prepared statement
+     * 
+     * @return bool
+     */
     public function execute()
     {
         try {
-            return $this->statement->execute();
+            return $this->statement ? $this->statement->execute() : false;
         } catch (PDOException $e) {
             $this->error = $e->getMessage();
-            // Log the error instead of echoing it to prevent header issues
-            error_log('Database Query Error: ' . $this->error);
+            Logger::error('Database Query Error: ' . $this->error);
             return false;
         }
     }
 
-    // Get result set as array of objects
+    /**
+     * Get result set as array of objects
+     * 
+     * @return array
+     */
     public function resultSet()
     {
         $this->execute();
-        return $this->statement->fetchAll();
+        return $this->statement ? $this->statement->fetchAll() : [];
     }
 
-    // Get single record as object
+    /**
+     * Get single record as object
+     * 
+     * @return array|false
+     */
     public function single()
     {
         $this->execute();
-        return $this->statement->fetch();
+        return $this->statement ? $this->statement->fetch() : false;
     }
 
-    // Get row count
+    /**
+     * Get row count
+     * 
+     * @return int
+     */
     public function rowCount()
     {
-        return $this->statement->rowCount();
-    }    // Get last inserted ID
+        return $this->statement ? $this->statement->rowCount() : 0;
+    }    
+    
+    /**
+     * Get last inserted ID
+     * 
+     * @return string
+     * @throws \Exception
+     */
     public function lastInsertId()
     {
         if ($this->connection === null) {
@@ -166,7 +282,12 @@ class Database
         return $this->connection->lastInsertId();
     }
 
-    // Transactions
+    /**
+     * Begin transaction
+     * 
+     * @return bool
+     * @throws \Exception
+     */
     public function beginTransaction()
     {
         if ($this->connection === null) {
@@ -175,6 +296,12 @@ class Database
         return $this->connection->beginTransaction();
     }
 
+    /**
+     * Commit transaction
+     * 
+     * @return bool
+     * @throws \Exception
+     */
     public function endTransaction()
     {
         if ($this->connection === null) {
@@ -183,6 +310,12 @@ class Database
         return $this->connection->commit();
     }
 
+    /**
+     * Rollback transaction
+     * 
+     * @return bool
+     * @throws \Exception
+     */
     public function cancelTransaction()
     {
         if ($this->connection === null) {
@@ -190,6 +323,4 @@ class Database
         }
         return $this->connection->rollBack();
     }
-
-    // Check if database connection is healthy    // Connection status and error methods are defined earlier in this file
 }

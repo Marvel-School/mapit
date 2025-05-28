@@ -1,6 +1,6 @@
-<?php
+<?php 
+$layout = 'admin';
 $title = 'Destination Details - Admin';
-include '../layouts/admin_header.php';
 ?>
 
 <div class="container-fluid">
@@ -227,13 +227,10 @@ function deleteDestination(destinationId) {
             } else {
                 alert('Error deleting destination: ' + data.message);
             }
-        })
-        .catch(error => {
+        })        .catch(error => {
             console.error('Error:', error);
             alert('Error deleting destination');
         });
     }
 }
 </script>
-
-<?php include '../layouts/admin_footer.php'; ?>

@@ -9,8 +9,9 @@
                 <div class="card-header bg-white py-3">
                     <h4 class="mb-0">My Profile</h4>
                 </div>
-                <div class="card-body">
-                    <form action="/profile" method="POST" enctype="multipart/form-data">
+                <div class="card-body">                    <form action="/profile" method="POST" enctype="multipart/form-data">
+                        <?= \App\Core\View::csrfField(); ?>
+                        
                         <?php if (isset($errors) && !empty($errors)): ?>
                             <div class="alert alert-danger">
                                 <ul class="mb-0">
@@ -31,10 +32,22 @@
                                             <img src="/images/default-avatar.png" alt="Profile" class="rounded-circle img-fluid">
                                         <?php endif; ?>
                                     </div>
-                                </div>
-                                <div class="mb-3">
+                                </div>                                <div class="mb-3">
                                     <label for="avatar" class="form-label">Change Profile Picture</label>
-                                    <input type="file" class="form-control" id="avatar" name="avatar">
+                                    <input type="file" 
+                                           class="form-control secure-upload" 
+                                           id="avatar" 
+                                           name="avatar"
+                                           accept="image/jpeg,image/png,image/gif,image/webp"
+                                           data-max-size="5242880"
+                                           data-upload-type="avatars">
+                                    <div class="form-text">
+                                        <small class="text-muted">
+                                            Allowed: JPG, PNG, GIF, WebP. Max size: 5MB. Max dimensions: 800x800px.
+                                            <br>EXIF data will be automatically removed for privacy.
+                                        </small>
+                                    </div>
+                                    <div id="avatar-upload-feedback" class="upload-feedback"></div>
                                 </div>
                             </div>
                             
@@ -164,4 +177,43 @@
         height: 100%;
         object-fit: cover;
     }
+    
+    .upload-feedback {
+        margin-top: 5px;
+    }
+    
+    .upload-feedback.error {
+        color: #dc3545;
+        font-size: 0.875em;
+    }
+    
+    .upload-feedback.success {
+        color: #198754;
+        font-size: 0.875em;
+    }
+    
+    .upload-feedback.warning {
+        color: #fd7e14;
+        font-size: 0.875em;
+    }
 </style>
+
+<script src="/js/secure-upload.js"></script>
+<script>
+    // Initialize secure upload for profile avatar
+    document.addEventListener('DOMContentLoaded', function() {
+        const avatarUpload = document.getElementById('avatar');
+        if (avatarUpload) {
+            // Add event listeners for real-time validation
+            avatarUpload.addEventListener('change', function(e) {
+                validateFileUpload(e.target, 'avatar-upload-feedback');
+            });
+            
+            // Prevent paste events on file inputs for security
+            avatarUpload.addEventListener('paste', function(e) {
+                e.preventDefault();
+                showUploadError('avatar-upload-feedback', 'Paste operations are not allowed for security reasons. Please use the file browser.');
+            });
+        }
+    });
+</script>

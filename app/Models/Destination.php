@@ -257,8 +257,6 @@ class Destination extends Model
         
         if ($excludeId) {
             $this->db->bind(':exclude_id', $excludeId);
-        }
-        
-        return $this->db->resultSet();
+        }        return $this->db->resultSet();
     }
 }

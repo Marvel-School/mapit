@@ -103,8 +103,7 @@ class UserController extends Controller
             'user' => $user
         ]);
     }
-    
-    /**
+      /**
      * Update user
      * 
      * @param int $id
@@ -112,6 +111,9 @@ class UserController extends Controller
      */
     public function update($id)
     {
+        // Validate CSRF token
+        $this->validateCSRF('/admin/users/' . $id . '/edit');
+        
         // Get user
         $userModel = $this->model('User');
         $user = $userModel->find($id);
@@ -219,8 +221,7 @@ class UserController extends Controller
         // Redirect to user details
         $this->redirect('/admin/users/' . $id);
     }
-    
-    /**
+      /**
      * Delete user
      * 
      * @param int $id
@@ -228,6 +229,9 @@ class UserController extends Controller
      */
     public function delete($id)
     {
+        // Validate CSRF token
+        $this->validateCSRF('/admin/users/' . $id);
+        
         // Prevent deleting own account
         if ($id == $_SESSION['user_id']) {
             $_SESSION['error'] = 'You cannot delete your own account';

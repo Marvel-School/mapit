@@ -17,8 +17,7 @@ class Trip extends Model
      * @param int $userId
      * @param array $filters
      * @return array
-     */
-    public function getUserTrips($userId, $filters = [])
+     */    public function getUserTrips($userId, $filters = [])
     {
         $sql = "
             SELECT t.*, d.name as destination_name, 
@@ -40,8 +39,15 @@ class Trip extends Model
             $sql .= " AND t.type = :type";
             $params[':type'] = $filters['type'];
         }
-          $sql .= " ORDER BY t.created_at DESC";
-          // Add pagination if specified
+        
+        $sql .= " ORDER BY t.created_at DESC";
+        
+        // Add limit if specified
+        if (!empty($filters['limit'])) {
+            $sql .= " LIMIT " . (int)$filters['limit'];
+        }
+        
+        // Add pagination if specified
         if (!empty($filters['page']) && !empty($filters['per_page'])) {
             $offset = ($filters['page'] - 1) * $filters['per_page'];
             $sql .= " LIMIT " . (int)$filters['per_page'] . " OFFSET " . (int)$offset;
@@ -205,5 +211,49 @@ class Trip extends Model
         
         $result = $this->db->single();
         return $result ? (int) $result['count'] : 0;
+    }
+
+    /**
+     * Get recent trips with unique destinations for dashboard
+     * This returns the most recent trip per destination to avoid duplicates
+     * 
+     * @param int $userId
+     * @param int $limit
+     * @return array
+     */
+    public function getRecentTripsUnique($userId, $limit = 5)
+    {
+        $sql = "
+            SELECT t.*, d.name as destination_name, 
+                d.latitude, d.longitude, d.description as destination_description
+            FROM trips t
+            JOIN destinations d ON t.destination_id = d.id
+            WHERE t.user_id = :user_id
+            AND t.id = (
+                SELECT t2.id 
+                FROM trips t2 
+                WHERE t2.destination_id = t.destination_id 
+                AND t2.user_id = :user_id2
+                ORDER BY 
+                    CASE t2.status 
+                        WHEN 'in_progress' THEN 1
+                        WHEN 'visited' THEN 2
+                        WHEN 'completed' THEN 3
+                        WHEN 'planned' THEN 4
+                        ELSE 5
+                    END,
+                    t2.created_at DESC 
+                LIMIT 1
+            )
+            ORDER BY t.created_at DESC
+            LIMIT :limit
+        ";
+        
+        $this->db->query($sql);
+        $this->db->bind(':user_id', $userId);
+        $this->db->bind(':user_id2', $userId);
+        $this->db->bind(':limit', $limit);
+        
+        return $this->db->resultSet();
     }
 }

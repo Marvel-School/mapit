@@ -8,14 +8,15 @@
             <div class="card border-0 shadow">
                 <div class="card-header bg-white py-3">
                     <h4 class="mb-0">Edit Destination</h4>
-                </div>
-                <div class="card-body">
+                </div>                <div class="card-body">
                     <form action="/destinations/<?= $destination['id']; ?>" method="POST" enctype="multipart/form-data">
+                        <?= \App\Core\View::csrfField(); ?>
+                        
                         <?php if (isset($errors) && !empty($errors)): ?>
                             <div class="alert alert-danger">
                                 <ul class="mb-0">
                                     <?php foreach ($errors as $error): ?>
-                                        <li><?= $error; ?></li>
+                                        <li><?= htmlspecialchars($error); ?></li>
                                     <?php endforeach; ?>
                                 </ul>
                             </div>
@@ -92,10 +93,9 @@
                             <label for="description" class="form-label">Description</label>
                             <textarea class="form-control" id="description" name="description" rows="4"><?= htmlspecialchars($destination['description'] ?? ''); ?></textarea>
                         </div>
-                        
-                        <div class="row mb-3">
+                          <div class="row mb-3">
                             <div class="col-md-6">
-                                <label for="image" class="form-label">Image</label>
+                                <label for="image" class="form-label">Destination Image</label>
                                 <?php if (!empty($destination['image'])): ?>
                                     <div class="mb-2">
                                         <img src="/images/destinations/<?= htmlspecialchars($destination['image']); ?>" alt="Current image" class="img-thumbnail" style="max-height: 100px;">
@@ -105,8 +105,19 @@
                                         </div>
                                     </div>
                                 <?php endif; ?>
-                                <input type="file" class="form-control" id="image" name="image">
-                                <div class="form-text">Optional. Max file size: 2MB. Supported formats: JPG, PNG.</div>
+                                <input type="file" class="form-control" id="image" name="image" accept="image/jpeg,image/png,image/gif,image/webp">
+                                <div class="form-text">
+                                    <strong>Security requirements:</strong><br>
+                                    • Max file size: 5MB<br>
+                                    • Allowed formats: JPG, PNG, GIF, WebP<br>
+                                    • Images will be automatically processed for security<br>
+                                    • EXIF data will be removed for privacy
+                                </div>
+                                <?php if (isset($errors['image'])): ?>
+                                    <div class="text-danger small mt-1">
+                                        <i class="fas fa-exclamation-triangle"></i> <?= htmlspecialchars($errors['image']); ?>
+                                    </div>
+                                <?php endif; ?>
                             </div>
                             
                             <div class="col-md-6 visit-date-container" style="<?= isset($destination['visited']) && $destination['visited'] == 1 ? '' : 'display: none;' ?>">
@@ -233,9 +244,9 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
     }
-    
-    function addMarker(position) {
-        // Remove existing marker if any        if (marker) {
+      function addMarker(position) {
+        // Remove existing marker if any
+        if (marker) {
             marker.setMap(null);
         }
         
@@ -274,8 +285,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 map: map,
                 draggable: true
             });
-            
-            // Add drag listener to marker
+              // Add drag listener to marker
             marker.addListener('dragend', function() {
                 const position = marker.getPosition().toJSON();
                 updateCoordinateInputs(position);
@@ -294,3 +304,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 </script>
+
+<!-- Secure Upload Validation -->
+<script src="/js/secure-upload.js"></script>

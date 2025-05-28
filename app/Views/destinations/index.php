@@ -59,11 +59,10 @@
                             </div>
                         <?php else: ?>
                             <div class="row" id="destinationsContainer">
-                                <?php foreach ($destinations as $destination): ?>
-                                    <div class="col-md-6 col-lg-4 mb-4 destination-card" 
+                                <?php foreach ($destinations as $destination): ?>                                    <div class="col-md-6 col-lg-4 mb-4 destination-card" 
                                          data-name="<?= strtolower(htmlspecialchars($destination['name'])); ?>"
                                          data-country="<?= htmlspecialchars($destination['country']); ?>"
-                                         data-status="<?= $destination['visited'] ? 'visited' : 'wishlist'; ?>">
+                                         data-status="<?= !empty($destination['trip_status']) ? $destination['trip_status'] : 'wishlist'; ?>">
                                         <div class="card h-100 border-0 shadow-sm">
                                             <?php if (!empty($destination['image'])): ?>
                                                 <img src="/images/destinations/<?= htmlspecialchars($destination['image']); ?>" class="card-img-top destination-img" alt="<?= htmlspecialchars($destination['name']); ?>">
@@ -71,10 +70,24 @@
                                                 <img src="/images/destination-placeholder.svg" class="card-img-top destination-img" alt="<?= htmlspecialchars($destination['name']); ?>">
                                             <?php endif; ?>
                                             
-                                            <?php if ($destination['visited']): ?>
-                                                <div class="destination-badge bg-success text-white">
-                                                    <i class="fas fa-check"></i> Visited
-                                                </div>
+                                            <?php if (!empty($destination['trip_status'])): ?>
+                                                <?php if ($destination['trip_status'] == 'visited'): ?>
+                                                    <div class="destination-badge bg-success text-white">
+                                                        <i class="fas fa-check"></i> Visited
+                                                    </div>
+                                                <?php elseif ($destination['trip_status'] == 'in_progress'): ?>
+                                                    <div class="destination-badge bg-info text-white">
+                                                        <i class="fas fa-route"></i> In Progress
+                                                    </div>
+                                                <?php elseif ($destination['trip_status'] == 'completed'): ?>
+                                                    <div class="destination-badge bg-primary text-white">
+                                                        <i class="fas fa-flag-checkered"></i> Completed
+                                                    </div>
+                                                <?php else: ?>
+                                                    <div class="destination-badge bg-secondary text-white">
+                                                        <i class="fas fa-calendar"></i> Planned
+                                                    </div>
+                                                <?php endif; ?>
                                             <?php else: ?>
                                                 <div class="destination-badge bg-warning text-white">
                                                     <i class="fas fa-heart"></i> Wishlist
@@ -105,18 +118,42 @@
                                                         <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="dropdownMenuButton" data-bs-toggle="dropdown" aria-expanded="false">
                                                             Actions
                                                         </button>
-                                                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdownMenuButton">
-                                                            <?php if ($destination['user_id'] == $_SESSION['user_id'] || (isset($_SESSION['role']) && $_SESSION['role'] == 'admin')): ?>
+                                                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdownMenuButton">                                                            <?php if ($destination['user_id'] == $_SESSION['user_id'] || (isset($_SESSION['role']) && $_SESSION['role'] == 'admin')): ?>
                                                                 <li><a class="dropdown-item" href="/destinations/<?= $destination['id']; ?>/edit">
                                                                     <i class="fas fa-edit me-2"></i> Edit
                                                                 </a></li>
                                                             <?php endif; ?>
                                                             
-                                                            <?php if ($destination['visited']): ?>
-                                                                <li><a class="dropdown-item" href="#" onclick="updateStatus(<?= $destination['id']; ?>, 0); return false;">
-                                                                    <i class="fas fa-heart me-2"></i> Move to Wishlist
-                                                                </a></li>
+                                                            <!-- Trip Status Actions -->
+                                                            <?php if (!empty($destination['trip_status'])): ?>
+                                                                <?php if ($destination['trip_status'] == 'visited'): ?>
+                                                                    <li><a class="dropdown-item" href="#" onclick="updateStatus(<?= $destination['id']; ?>, 0); return false;">
+                                                                        <i class="fas fa-heart me-2"></i> Move to Wishlist
+                                                                    </a></li>
+                                                                <?php elseif ($destination['trip_status'] == 'in_progress'): ?>
+                                                                    <li><a class="dropdown-item" href="#" onclick="completeTrip(<?= $destination['trip_id']; ?>); return false;">
+                                                                        <i class="fas fa-flag-checkered me-2"></i> Complete Trip
+                                                                    </a></li>
+                                                                    <li><a class="dropdown-item" href="#" onclick="updateStatus(<?= $destination['id']; ?>, 1); return false;">
+                                                                        <i class="fas fa-check me-2"></i> Mark as Visited
+                                                                    </a></li>
+                                                                <?php elseif ($destination['trip_status'] == 'completed'): ?>
+                                                                    <li><a class="dropdown-item" href="#" onclick="updateStatus(<?= $destination['id']; ?>, 1); return false;">
+                                                                        <i class="fas fa-check me-2"></i> Mark as Visited
+                                                                    </a></li>
+                                                                <?php else: // planned ?>
+                                                                    <li><a class="dropdown-item" href="#" onclick="startTrip(<?= $destination['trip_id']; ?>); return false;">
+                                                                        <i class="fas fa-play me-2"></i> Start Trip
+                                                                    </a></li>
+                                                                    <li><a class="dropdown-item" href="#" onclick="updateStatus(<?= $destination['id']; ?>, 1); return false;">
+                                                                        <i class="fas fa-check me-2"></i> Mark as Visited
+                                                                    </a></li>
+                                                                <?php endif; ?>
                                                             <?php else: ?>
+                                                                <!-- No trip exists - show wishlist actions -->
+                                                                <li><a class="dropdown-item" href="/trips/create?destination_id=<?= $destination['id']; ?>">
+                                                                    <i class="fas fa-plus me-2"></i> Plan Trip
+                                                                </a></li>
                                                                 <li><a class="dropdown-item" href="#" onclick="updateStatus(<?= $destination['id']; ?>, 1); return false;">
                                                                     <i class="fas fa-check me-2"></i> Mark as Visited
                                                                 </a></li>
@@ -326,6 +363,48 @@ function updateStatus(id, visited) {
     })
     .catch(error => {
         alert('An error occurred while updating the destination status');
+    });
+}
+
+// Function to start a trip
+function startTrip(tripId) {
+    fetch(`/api/trips/${tripId}/start`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            window.location.reload();
+        } else {
+            alert('Failed to start trip: ' + (data.message || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        alert('An error occurred while starting the trip');
+    });
+}
+
+// Function to complete a trip
+function completeTrip(tripId) {
+    fetch(`/api/trips/${tripId}/complete`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            window.location.reload();
+        } else {
+            alert('Failed to complete trip: ' + (data.message || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        alert('An error occurred while completing the trip');
     });
 }
 </script>

@@ -12,7 +12,10 @@
                         <p class="text-muted">Join MapIt and start tracking your travels</p>
                     </div>
                     
-                    <form action="/register" method="POST">                        <?php if (isset($errors) && is_array($errors) && !empty($errors)): ?>
+                    <form action="/register" method="POST">
+                        <?= \App\Core\View::csrfField(); ?>
+                        
+                        <?php if (isset($errors) && is_array($errors) && !empty($errors)): ?>
                             <div class="alert alert-danger mb-4">
                                 <ul class="mb-0">
                                     <?php foreach($errors as $field => $error): ?>

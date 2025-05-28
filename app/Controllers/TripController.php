@@ -92,8 +92,7 @@ class TripController extends Controller
             'userDestinations' => $destinations
         ]);
     }
-    
-    /**
+      /**
      * Store a new trip
      * 
      * @return void
@@ -101,6 +100,9 @@ class TripController extends Controller
     public function store()
     {
         $userId = $_SESSION['user_id'];
+        
+        // Validate CSRF token
+        $this->validateCSRF('/trips/create');
         
         // Get form data
         $destinationId = $_POST['destination_id'] ?? null;
@@ -249,8 +251,7 @@ class TripController extends Controller
             'userDestinations' => $destinations
         ]);
     }
-    
-    /**
+      /**
      * Update a trip
      * 
      * @param int $id
@@ -259,6 +260,9 @@ class TripController extends Controller
     public function update($id)
     {
         $userId = $_SESSION['user_id'];
+        
+        // Validate CSRF token
+        $this->validateCSRF('/trips/' . $id . '/edit');
         
         // Get trip
         $tripModel = $this->model('Trip');
@@ -312,8 +316,7 @@ class TripController extends Controller
         // Redirect to trip
         $this->redirect('/trips/' . $id);
     }
-    
-    /**
+      /**
      * Delete a trip
      * 
      * @param int $id
@@ -322,6 +325,9 @@ class TripController extends Controller
     public function delete($id)
     {
         $userId = $_SESSION['user_id'];
+        
+        // Validate CSRF token
+        $this->validateCSRF('/trips/' . $id);
         
         // Get trip
         $tripModel = $this->model('Trip');

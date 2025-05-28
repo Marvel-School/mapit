@@ -10,7 +10,10 @@
                     <div class="text-center mb-4">
                         <h1 class="h3">Welcome Back</h1>
                         <p class="text-muted">Log in to access your travel dashboard</p>
-                    </div>                    <form action="/login" method="POST">                        <?php if (isset($_SESSION['success'])): ?>
+                    </div>                    <form action="/login" method="POST">
+                        <?= \App\Core\View::csrfField(); ?>
+                        
+                        <?php if (isset($_SESSION['success'])): ?>
                             <div class="alert alert-success mb-4">
                                 <?= $_SESSION['success']; ?>
                                 <?php unset($_SESSION['success']); ?>

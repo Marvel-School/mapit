@@ -70,4 +70,93 @@ class LogController extends Controller
             ]
         ]);
     }
+    
+    /**
+     * Clear all logs
+     * 
+     * @return void
+     */
+    public function clear()
+    {
+        // Check if request is AJAX
+        if (!isset($_SERVER['HTTP_X_REQUESTED_WITH']) || 
+            strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) !== 'xmlhttprequest') {
+            $this->json(['success' => false, 'message' => 'Invalid request'], 400);
+            return;
+        }
+        
+        // Only allow POST requests
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->json(['success' => false, 'message' => 'Method not allowed'], 405);
+            return;
+        }
+        
+        try {
+            $logModel = $this->model('Log');
+            $cleared = $logModel->clearAll();
+            
+            if ($cleared) {
+                // Log the action
+                $logModel::write('INFO', 'System logs cleared by admin', [
+                    'admin_id' => $_SESSION['user_id'],
+                    'admin_username' => $_SESSION['username']
+                ], 'Admin');
+                
+                $this->json(['success' => true, 'message' => 'All logs cleared successfully']);
+            } else {
+                $this->json(['success' => false, 'message' => 'Failed to clear logs'], 500);
+            }        } catch (\Exception $e) {
+            $this->json(['success' => false, 'message' => 'Error clearing logs: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Delete a specific log entry
+     * 
+     * @param int $id
+     * @return void
+     */
+    public function delete($id)
+    {
+        // Ensure this is an AJAX request
+        if (!\App\Core\Request::isAjax()) {
+            $this->json(['success' => false, 'message' => 'Invalid request'], 400);
+            return;
+        }
+
+        // Only allow DELETE requests
+        if ($_SERVER['REQUEST_METHOD'] !== 'DELETE') {
+            $this->json(['success' => false, 'message' => 'Method not allowed'], 405);
+            return;
+        }
+
+        try {
+            $logModel = $this->model('Log');
+            
+            // Check if log exists
+            $log = $logModel->find($id);
+            if (!$log) {
+                $this->json(['success' => false, 'message' => 'Log entry not found'], 404);
+                return;
+            }
+
+            // Delete the log entry
+            $deleted = $logModel->delete($id);
+            
+            if ($deleted) {
+                // Log the deletion action
+                $logModel::write('INFO', "Log entry deleted by admin", [
+                    'admin_id' => $_SESSION['user_id'],
+                    'admin_username' => $_SESSION['username'],
+                    'deleted_log_id' => $id
+                ], 'Admin');
+                
+                $this->json(['success' => true, 'message' => 'Log entry deleted successfully']);
+            } else {
+                $this->json(['success' => false, 'message' => 'Failed to delete log entry'], 500);
+            }
+        } catch (\Exception $e) {
+            $this->json(['success' => false, 'message' => 'Error deleting log: ' . $e->getMessage()], 500);
+        }
+    }
 }

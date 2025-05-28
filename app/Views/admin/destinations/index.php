@@ -289,6 +289,7 @@ function updateStatus(destinationId, status) {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
             },
             body: JSON.stringify({ status: status })
         })
@@ -301,6 +302,7 @@ function updateStatus(destinationId, status) {
             }
         })
         .catch(error => {
+            console.error('Error:', error);
             alert('Error updating status');
         });
     }

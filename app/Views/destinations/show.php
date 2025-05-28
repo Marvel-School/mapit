@@ -260,10 +260,9 @@ document.addEventListener('DOMContentLoaded', function() {
         });
           // Create marker for the destination with AdvancedMarkerElement or fallback
         let marker;
-        try {
-            // Try using AdvancedMarkerElement first
+        try {            // Try using AdvancedMarkerElement first
             if (google.maps.marker && google.maps.marker.AdvancedMarkerElement) {
-                const iconUrl = '<?= ($trip && $trip['status'] === 'visited') ? '/images/markers/visited.png' : '/images/markers/wishlist.png'; ?>';
+                const iconUrl = '<?= ($trip && $trip['status'] === 'visited') ? '/images/markers/visited_enhanced.svg' : '/images/markers/wishlist_enhanced.svg'; ?>';
                 const iconElement = document.createElement('img');
                 iconElement.src = iconUrl;
                 iconElement.style.width = '32px';
@@ -278,15 +277,14 @@ document.addEventListener('DOMContentLoaded', function() {
             } else {
                 throw new Error('AdvancedMarkerElement not available');
             }
-        } catch (error) {
-            // Fallback to legacy Marker
+        } catch (error) {            // Fallback to legacy Marker
             marker = new google.maps.Marker({
                 position: { lat, lng },
                 map: map,
                 title: '<?= addslashes(htmlspecialchars($destination['name'])); ?>',
                 animation: google.maps.Animation.DROP,
                 icon: {
-                    url: '<?= ($trip && $trip['status'] === 'visited') ? '/images/markers/visited.png' : '/images/markers/wishlist.png'; ?>',
+                    url: '<?= ($trip && $trip['status'] === 'visited') ? '/images/markers/visited_enhanced.svg' : '/images/markers/wishlist_enhanced.svg'; ?>',
                     scaledSize: new google.maps.Size(32, 32)
                 }
             });
@@ -321,10 +319,9 @@ document.addEventListener('DOMContentLoaded', function() {
             <?php foreach ($nearbyDestinations as $nearby): ?>
                 // Create nearby marker with AdvancedMarkerElement or fallback
                 let nearbyMarker<?= $nearby['id']; ?>;
-                try {
-                    if (google.maps.marker && google.maps.marker.AdvancedMarkerElement) {
+                try {                    if (google.maps.marker && google.maps.marker.AdvancedMarkerElement) {
                         const nearbyIconElement<?= $nearby['id']; ?> = document.createElement('img');
-                        nearbyIconElement<?= $nearby['id']; ?>.src = '/images/markers/wishlist.png';
+                        nearbyIconElement<?= $nearby['id']; ?>.src = '/images/markers/wishlist_enhanced.svg';
                         nearbyIconElement<?= $nearby['id']; ?>.style.width = '24px';
                         nearbyIconElement<?= $nearby['id']; ?>.style.height = '24px';
                         
@@ -339,8 +336,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         });
                     } else {
                         throw new Error('AdvancedMarkerElement not available');
-                    }
-                } catch (error) {
+                    }                } catch (error) {
                     nearbyMarker<?= $nearby['id']; ?> = new google.maps.Marker({
                         position: { 
                             lat: <?= $nearby['latitude']; ?>, 
@@ -349,7 +345,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         map: map,
                         title: '<?= addslashes(htmlspecialchars($nearby['name'])); ?>',
                         icon: {
-                            url: '/images/markers/wishlist.png',
+                            url: '/images/markers/wishlist_enhanced.svg',
                             scaledSize: new google.maps.Size(24, 24)
                         }
                     });

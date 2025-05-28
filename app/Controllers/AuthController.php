@@ -32,78 +32,96 @@ class AuthController extends Controller
      */
     public function processLogin()
     {
-        // Get form data
-        $username = $_POST['username'] ?? '';
-        $password = $_POST['password'] ?? '';
-        $remember = isset($_POST['remember']) ? true : false;
-        
-        // Validate form data
-        $errors = [];
-        
-        if (empty($username)) {
-            $errors['username'] = 'Username or email is required';
-        }
-        
-        if (empty($password)) {
-            $errors['password'] = 'Password is required';
-        }
-        
-        if (!empty($errors)) {
-            $this->view('auth/login', [
-                'title' => 'Login',
-                'errors' => $errors,
-                'username' => $username
-            ]);
-            return;
-        }
-        
-        // Authenticate user
-        $userModel = $this->model('User');
-        $user = $userModel->authenticate($username, $password);
-        
-        if (!$user) {
-            $errors['login'] = 'Invalid username or password';
+        try {
+            // Validate CSRF token
+            $this->validateCSRF('/login');
             
-            $this->view('auth/login', [
-                'title' => 'Login',
-                'errors' => $errors,
-                'username' => $username
-            ]);
-            return;
-        }
-        
-        // Set session variables
-        $_SESSION['user_id'] = $user['id'];
-        $_SESSION['username'] = $user['username'];
-        $_SESSION['user_role'] = $user['role'];
-        
-        // If remember me is checked, set a cookie
-        if ($remember) {
-            $token = bin2hex(random_bytes(32));
-            $expires = time() + (86400 * 30); // 30 days
+            // Get form data
+            $username = $_POST['username'] ?? '';
+            $password = $_POST['password'] ?? '';
+            $remember = isset($_POST['remember']) ? true : false;
             
-            setcookie('remember_token', $token, $expires, '/');
+            // Validate form data
+            $errors = [];
             
-            // In a real application, store the token in the database linked to the user
-            // Here we'll just log it
+            if (empty($username)) {
+                $errors['username'] = 'Username or email is required';
+            }
+            
+            if (empty($password)) {
+                $errors['password'] = 'Password is required';
+            }
+            
+            if (!empty($errors)) {
+                $this->view('auth/login', [
+                    'title' => 'Login',
+                    'errors' => $errors,
+                    'username' => $username
+                ]);
+                return;
+            }
+            
+            // Authenticate user
+            $userModel = $this->model('User');
+            $user = $userModel->authenticate($username, $password);
+            
+            if (!$user) {
+                $errors['login'] = 'Invalid username or password';
+                
+                $this->view('auth/login', [
+                    'title' => 'Login',
+                    'errors' => $errors,
+                    'username' => $username
+                ]);
+                return;
+            }
+            
+            // Set session variables
+            $_SESSION['user_id'] = $user['id'];
+            $_SESSION['username'] = $user['username'];
+            $_SESSION['user_role'] = $user['role'];
+            
+            // If remember me is checked, set a cookie
+            if ($remember) {
+                $token = bin2hex(random_bytes(32));
+                $expires = time() + (86400 * 30); // 30 days
+                setcookie('remember_token', $token, $expires, '/');
+                
+                // In a real application, store the token in the database linked to the user
+                // Here we'll just log it
+                $logModel = $this->model('Log');
+                $logModel::write('INFO', 'Remember me token set', [
+                    'user_id' => $user['id'],
+                    'expires' => date('Y-m-d H:i:s', $expires)
+                ], 'Authentication');
+            }
+            
+            // Log the login
             $logModel = $this->model('Log');
-            $logModel::write('INFO', 'Remember me token set', [
-                'user_id' => $user['id'],
-                'expires' => date('Y-m-d H:i:s', $expires)
+            $logModel::write('INFO', "User login: {$user['username']}", [
+                'user_id' => $user['id']
             ], 'Authentication');
-        }
-        
-        // Log the login
-        $logModel = $this->model('Log');
-        $logModel::write('INFO', "User login: {$user['username']}", [
-            'user_id' => $user['id']
-        ], 'Authentication');
-        
-        // Redirect based on role
-        if ($user['role'] == 'admin') {
-            $this->redirect('/admin');
-        } else {
-            $this->redirect('/dashboard');
+            
+            // Redirect based on role
+            if ($user['role'] == 'admin') {
+                $this->redirect('/admin');
+            } else {
+                $this->redirect('/dashboard');
+            }
+            
+        } catch (\Exception $e) {
+            // Log the error
+            $logModel = $this->model('Log');
+            $logModel::write('ERROR', 'Login error: ' . $e->getMessage(), [
+                'username' => $username ?? '',
+                'trace' => $e->getTraceAsString()
+            ], 'Authentication');
+            
+            $this->view('auth/login', [
+                'title' => 'Login',
+                'errors' => ['login' => 'An error occurred during login. Please try again.'],
+                'username' => $username ?? ''
+            ]);
         }
     }
     
@@ -123,20 +141,33 @@ class AuthController extends Controller
             'title' => 'Register'
         ]);
     }
-    
-    /**
+      /**
      * Process registration form
      * 
      * @return void
      */
     public function processRegister()
     {
-        // Get form data
-        $username = $_POST['username'] ?? '';
-        $email = $_POST['email'] ?? '';
-        $password = $_POST['password'] ?? '';
-        $passwordConfirm = $_POST['password_confirm'] ?? '';
-          // Validate form data
+        try {
+            // Check rate limiting
+            if (!$this->checkRateLimit('register', 3, 900)) { // 3 attempts per 15 minutes
+                $this->view('auth/register', [
+                    'title' => 'Register',
+                    'errors' => ['rate_limit' => 'Too many registration attempts. Please try again later.']
+                ]);
+                return;
+            }
+            
+            // Validate CSRF token
+            $this->validateCSRF('/register');
+            
+            // Get and sanitize form data
+            $username = $this->sanitizeInput($_POST['username'] ?? '');
+            $email = $this->sanitizeInput($_POST['email'] ?? '');
+            $password = $_POST['password'] ?? '';
+            $passwordConfirm = $_POST['password_confirm'] ?? '';
+        
+        // Validate form data
         $validator = new Validator($_POST);
         $validator->validate([
             'username' => 'required|min:3|max:50|unique:users',
@@ -244,6 +275,9 @@ class AuthController extends Controller
      */
     public function processForgotPassword()
     {
+        // Validate CSRF token
+        $this->validateCSRF('/forgot-password');
+        
         // Get form data
         $email = $_POST['email'] ?? '';
         
@@ -328,6 +362,9 @@ class AuthController extends Controller
      */
     public function processResetPassword()
     {
+        // Validate CSRF token
+        $this->validateCSRF('/login');
+        
         // Get form data
         $token = $_POST['token'] ?? '';
         $password = $_POST['password'] ?? '';
@@ -365,5 +402,77 @@ class AuthController extends Controller
         
         // Redirect to login
         $this->redirect('/login');
+    }
+
+    /**
+     * Validate password strength
+     * 
+     * @param string $password
+     * @return array
+     */
+    protected function validatePasswordStrength($password)
+    {
+        $errors = [];
+        
+        if (strlen($password) < 8) {
+            $errors[] = 'Password must be at least 8 characters long';
+        }
+        
+        if (!preg_match('/[A-Z]/', $password)) {
+            $errors[] = 'Password must contain at least one uppercase letter';
+        }
+        
+        if (!preg_match('/[a-z]/', $password)) {
+            $errors[] = 'Password must contain at least one lowercase letter';
+        }
+        
+        if (!preg_match('/[0-9]/', $password)) {
+            $errors[] = 'Password must contain at least one number';
+        }
+        
+        if (!preg_match('/[^A-Za-z0-9]/', $password)) {
+            $errors[] = 'Password must contain at least one special character';
+        }
+        
+        // Check against common passwords
+        $commonPasswords = [
+            'password', '123456', '12345678', 'qwerty', 'abc123', 
+            'password123', 'admin', 'letmein', 'welcome', 'monkey'
+        ];
+        
+        if (in_array(strtolower($password), $commonPasswords)) {
+            $errors[] = 'Password is too common. Please choose a stronger password';
+        }
+        
+        return $errors;
+    }
+    
+    /**
+     * Validate email format and domain
+     * 
+     * @param string $email
+     * @return array
+     */
+    protected function validateEmailSecurity($email)
+    {
+        $errors = [];
+        
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $errors[] = 'Invalid email format';
+            return $errors;
+        }
+        
+        // Check for suspicious email patterns
+        if (preg_match('/[<>"\'\\\]/', $email)) {
+            $errors[] = 'Email contains invalid characters';
+        }
+        
+        // Basic domain validation
+        $domain = substr(strrchr($email, "@"), 1);
+        if ($domain && !checkdnsrr($domain, "MX")) {
+            $errors[] = 'Email domain does not exist';
+        }
+        
+        return $errors;
     }
 }

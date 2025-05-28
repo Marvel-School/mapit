@@ -298,4 +298,63 @@ class DestinationController extends Controller
             'status' => $newStatus
         ]);
     }
+
+    /**
+     * Delete a destination
+     * 
+     * @param int $id
+     * @return void
+     */
+    public function delete($id)
+    {
+        // Ensure this is an AJAX request
+        if (!\App\Core\Request::isAjax()) {
+            $this->json(['success' => false, 'message' => 'Invalid request'], 400);
+            return;
+        }
+
+        // Get destination
+        $destinationModel = $this->model('Destination');
+        $destination = $destinationModel->find($id);
+        
+        if (!$destination) {
+            $this->json(['success' => false, 'message' => 'Destination not found'], 404);
+            return;
+        }
+
+        // Check if there are trips associated with this destination
+        $db = Database::getInstance();
+        $db->query("SELECT COUNT(*) as trip_count FROM trips WHERE destination_id = :destination_id");
+        $db->bind(':destination_id', $id);
+        $tripCount = $db->single()['trip_count'];
+
+        if ($tripCount > 0) {
+            $this->json([
+                'success' => false, 
+                'message' => "Cannot delete destination. It has {$tripCount} associated trip(s). Please delete or reassign the trips first."
+            ], 400);
+            return;
+        }
+
+        // Delete the destination
+        $deleted = $destinationModel->delete($id);
+        
+        if (!$deleted) {
+            $this->json(['success' => false, 'message' => 'Failed to delete destination'], 500);
+            return;
+        }
+
+        // Log the deletion
+        $logModel = $this->model('Log');
+        $logModel::write('INFO', "Destination deleted: {$destination['name']}", [
+            'admin_id' => $_SESSION['user_id'],
+            'destination_id' => $id,
+            'destination_name' => $destination['name']
+        ], 'Admin');
+
+        $this->json([
+            'success' => true, 
+            'message' => 'Destination deleted successfully'
+        ]);
+    }
 }

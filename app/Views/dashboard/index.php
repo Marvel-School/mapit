@@ -242,6 +242,67 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    
+    /**
+     * Create enhanced SVG-based fallback markers instead of boring circles
+     * @param {string} markerType - Type of marker (visited, wishlist, featured, etc.)
+     * @returns {Object} Google Maps marker icon configuration
+     */
+    function createEnhancedFallbackMarker(markerType) {
+        const markerConfigs = {
+            'visited': { color: '#28a745', icon: 'M9 16 L14 21 L23 11' },
+            'wishlist': { color: '#ffc107', icon: 'M16 26.5 C16 26.5 7 19 7 13 C7 10.5 9 8.5 11.5 8.5 C13.5 8.5 15.5 10 16 12 C16.5 10 18.5 8.5 20.5 8.5 C23 8.5 25 10.5 25 13 C25 19 16 26.5 16 26.5 Z' },
+            'featured': { color: '#ff6b35', icon: 'M16 6 L18.5 12.5 L25 12.5 L20 17 L22.5 24 L16 19.5 L9.5 24 L12 17 L7 12.5 L13.5 12.5 Z' },
+            'planned': { color: '#17a2b8', icon: 'calendar' },
+            'in_progress': { color: '#007bff', icon: 'M6 20 Q11 10 16 16 Q21 22 26 12' },
+            'public': { color: '#4285f4', icon: 'globe' }
+        };
+
+        const config = markerConfigs[markerType] || markerConfigs['public'];
+        
+        // Create SVG icon
+        let iconSvg = '';
+        if (config.icon === 'calendar') {
+            iconSvg = `
+                <svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="16" cy="16" r="14" fill="${config.color}" stroke="#ffffff" stroke-width="2"/>
+                    <rect x="10" y="9" width="12" height="14" rx="1" fill="none" stroke="#ffffff" stroke-width="1.5"/>
+                    <line x1="13" y1="7" x2="13" y2="11" stroke="#ffffff" stroke-width="1.5"/>
+                    <line x1="19" y1="7" x2="19" y2="11" stroke="#ffffff" stroke-width="1.5"/>
+                    <line x1="10" y1="13" x2="22" y2="13" stroke="#ffffff" stroke-width="1.5"/>
+                    <circle cx="14" cy="17" r="1" fill="#ffffff"/>
+                    <circle cx="16" cy="17" r="1" fill="#ffffff"/>
+                    <circle cx="18" cy="17" r="1" fill="#ffffff"/>
+                </svg>
+            `;
+        } else if (config.icon === 'globe') {
+            iconSvg = `
+                <svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="16" cy="16" r="14" fill="${config.color}" stroke="#ffffff" stroke-width="2"/>
+                    <circle cx="16" cy="16" r="8" fill="none" stroke="#ffffff" stroke-width="1.5"/>
+                    <path d="M8 16 Q16 10 24 16" fill="none" stroke="#ffffff" stroke-width="1.5"/>
+                    <path d="M8 16 Q16 22 24 16" fill="none" stroke="#ffffff" stroke-width="1.5"/>
+                    <line x1="16" y1="8" x2="16" y2="24" stroke="#ffffff" stroke-width="1.5"/>
+                </svg>
+            `;
+        } else {
+            iconSvg = `
+                <svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="16" cy="16" r="14" fill="${config.color}" stroke="#ffffff" stroke-width="2"/>
+                    <path d="${config.icon}" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            `;
+        }
+
+        // Convert SVG to data URL
+        const svgDataUrl = 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(iconSvg);
+        
+        return {
+            url: svgDataUrl,
+            scaledSize: new google.maps.Size(32, 32),
+            anchor: new google.maps.Point(16, 16)
+        };
+    }
     // Enhanced Google Maps loading check with retry mechanism
     function waitForGoogleMapsReady() {
         return new Promise((resolve, reject) => {
@@ -323,14 +384,36 @@ document.addEventListener('DOMContentLoaded', function() {
         });        // Load both featured destinations and user destinations
         const featuredDestinations = <?= json_encode($featured ?? []); ?>;
         const userDestinations = <?= json_encode($userDestinations ?? []); ?>;
+        const publicDestinations = <?= json_encode($publicDestinations ?? []); ?>;
         
         // Mark featured destinations as featured
         featuredDestinations.forEach(dest => {
             dest.featured = true;
         });
         
-        // Combine all destinations
-        const allDestinations = [...featuredDestinations, ...userDestinations];
+        // Combine all destinations and remove duplicates by ID
+        const allDestinationsWithDuplicates = [...featuredDestinations, ...userDestinations, ...publicDestinations];
+        
+        // Deduplicate by ID, prioritizing featured > user > public
+        const destinationMap = new Map();
+        
+        // Add in reverse priority order (public first, then user, then featured)
+        // This way, featured and user destinations will overwrite public ones
+        publicDestinations.forEach(dest => {
+            if (!destinationMap.has(dest.id)) {
+                destinationMap.set(dest.id, { ...dest, sourceType: 'public' });
+            }
+        });
+        
+        userDestinations.forEach(dest => {
+            destinationMap.set(dest.id, { ...dest, sourceType: 'user' });
+        });
+        
+        featuredDestinations.forEach(dest => {
+            destinationMap.set(dest.id, { ...dest, featured: true, sourceType: 'featured' });
+        });
+        
+        const allDestinations = Array.from(destinationMap.values());
         
         addDestinationsToMap(window.travelMap, allDestinations);
         
@@ -356,39 +439,32 @@ document.addEventListener('DOMContentLoaded', function() {
                 default: return '#6c757d';
             }
         }
-        
-        // Helper function to get marker icons with preloading
+          // Helper function to get marker icons with preloading
         function getMarkerIcon(markerType) {
             const iconMap = {
                 'featured': { url: '/images/markers/featured.svg', scaledSize: new google.maps.Size(32, 32) },
-                'visited': { url: '/images/markers/visited.png', scaledSize: new google.maps.Size(32, 32) },
-                'in_progress': { url: '/images/markers/in_progress.svg', scaledSize: new google.maps.Size(32, 32) },
-                'planned': { url: '/images/markers/planned.svg', scaledSize: new google.maps.Size(32, 32) },
-                'wishlist': { url: '/images/markers/wishlist.png', scaledSize: new google.maps.Size(32, 32) }
+                'visited': { url: '/images/markers/visited_enhanced.svg', scaledSize: new google.maps.Size(32, 32) },
+                'in_progress': { url: '/images/markers/in_progress_enhanced.svg', scaledSize: new google.maps.Size(32, 32) },
+                'planned': { url: '/images/markers/planned_enhanced.svg', scaledSize: new google.maps.Size(32, 32) },
+                'wishlist': { url: '/images/markers/wishlist_enhanced.svg', scaledSize: new google.maps.Size(32, 32) },
+                'public': { url: '/images/markers/public.svg', scaledSize: new google.maps.Size(32, 32) }
             };
-            return iconMap[markerType] || iconMap['wishlist'];
+            return iconMap[markerType] || iconMap['public'];
         }
-        
-        // Helper function to get fallback markers
+          // Helper function to get fallback markers
         function getFallbackMarker(markerType) {
-            return {
-                path: google.maps.SymbolPath.CIRCLE,
-                fillColor: getMarkerColor(markerType),
-                fillOpacity: 0.8,
-                scale: 8,
-                strokeColor: '#ffffff',
-                strokeWeight: 2
-            };
+            // Use enhanced SVG fallback instead of boring circles
+            return createEnhancedFallbackMarker(markerType);
         }
-        
-        // Preload marker images to avoid loading issues
+          // Preload marker images to avoid loading issues
         function preloadMarkerImages() {
             const imageUrls = [
                 '/images/markers/featured.svg',
-                '/images/markers/visited.png', 
-                '/images/markers/in_progress.svg',
-                '/images/markers/planned.svg',
-                '/images/markers/wishlist.png'
+                '/images/markers/visited_enhanced.svg', 
+                '/images/markers/in_progress_enhanced.svg',
+                '/images/markers/planned_enhanced.svg',
+                '/images/markers/wishlist_enhanced.svg',
+                '/images/markers/public.svg'
             ];
             
             imageUrls.forEach(url => {
@@ -536,12 +612,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     });
                     
                     markerCreated = true;
-                    
-                    // Add error handling for marker icon loading
+                      // Add error handling for marker icon loading
                     marker.addListener('icon_changed', function() {
                         const img = new Image();
                         img.onerror = function() {
-                            const fallbackMarker = getFallbackMarker(markerType);
+                            const fallbackMarker = createEnhancedFallbackMarker(markerType);
                             marker.setIcon(fallbackMarker);
                         };
                         img.src = iconToUse.url;
@@ -618,30 +693,22 @@ document.addEventListener('DOMContentLoaded', function() {
             case 'planned': return '#ffc107';
             default: return '#6c757d';
         }
-    }
-    
-    // Helper function to get marker icons (duplicate for scoping)
-    function getMarkerIcon(markerType) {
-        const iconMap = {
-            'featured': { url: '/images/markers/featured.svg', scaledSize: new google.maps.Size(32, 32) },
-            'visited': { url: '/images/markers/visited.png', scaledSize: new google.maps.Size(32, 32) },
-            'in_progress': { url: '/images/markers/in_progress.svg', scaledSize: new google.maps.Size(32, 32) },
-            'planned': { url: '/images/markers/planned.svg', scaledSize: new google.maps.Size(32, 32) },
-            'wishlist': { url: '/images/markers/wishlist.png', scaledSize: new google.maps.Size(32, 32) }
-        };
-        return iconMap[markerType] || iconMap['wishlist'];
-    }
-    
-    // Helper function to get fallback markers (duplicate for scoping)
+    }        // Helper function to get marker icons (duplicate for scoping)
+        function getMarkerIcon(markerType) {
+            const iconMap = {
+                'featured': { url: '/images/markers/featured.svg', scaledSize: new google.maps.Size(32, 32) },
+                'visited': { url: '/images/markers/visited_enhanced.svg', scaledSize: new google.maps.Size(32, 32) },
+                'in_progress': { url: '/images/markers/in_progress_enhanced.svg', scaledSize: new google.maps.Size(32, 32) },
+                'planned': { url: '/images/markers/planned_enhanced.svg', scaledSize: new google.maps.Size(32, 32) },
+                'wishlist': { url: '/images/markers/wishlist_enhanced.svg', scaledSize: new google.maps.Size(32, 32) },
+                'public': { url: '/images/markers/public.svg', scaledSize: new google.maps.Size(32, 32) }
+            };
+            return iconMap[markerType] || iconMap['public'];
+        }
+      // Helper function to get fallback markers (duplicate for scoping)
     function getFallbackMarker(markerType) {
-        return {
-            path: google.maps.SymbolPath.CIRCLE,
-            fillColor: getMarkerColor(markerType),
-            fillOpacity: 0.8,
-            scale: 8,
-            strokeColor: '#ffffff',
-            strokeWeight: 2
-        };
+        // Use enhanced SVG fallback instead of boring circles
+        return createEnhancedFallbackMarker(markerType);
     }
     
     // Function to adjust map bounds with better logic

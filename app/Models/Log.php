@@ -152,4 +152,15 @@ class Log extends Model
             'url' => $_SERVER['REQUEST_URI'] ?? null
         ]);
     }
+    
+    /**
+     * Clear all log entries
+     * 
+     * @return bool
+     */
+    public function clearAll()
+    {
+        $this->db->query("DELETE FROM logs");
+        return $this->db->execute();
+    }
 }

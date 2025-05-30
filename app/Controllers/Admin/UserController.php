@@ -257,10 +257,10 @@ class UserController extends Controller
             $this->redirect('/admin/users');
             return;
         }
-        
-        // Log the deletion
+          // Log the deletion
         $logModel = $this->model('Log');
-        $logModel::write('INFO', "User deleted by admin: {$user['username']}", [
+        $username = $user['username'] ?? 'unknown';
+        $logModel::write('INFO', "User deleted by admin: {$username}", [
             'admin_id' => $_SESSION['user_id'],
             'user_id' => $id
         ], 'Admin');

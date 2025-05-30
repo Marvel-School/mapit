@@ -93,13 +93,13 @@ class App
      * Configure session security settings before starting session
      * 
      * @return void
-     */
-    protected function configureSessionSecurity()
+     */    protected function configureSessionSecurity()
     {
         // Configure session security settings (must be done before session_start)
         ini_set('session.cookie_httponly', 1);
         ini_set('session.cookie_secure', isset($_SERVER['HTTPS']) ? 1 : 0);
-        ini_set('session.cookie_samesite', 'Strict');
+        // Change from Strict to Lax to prevent session issues in some browsers
+        ini_set('session.cookie_samesite', 'Lax');
         ini_set('session.use_strict_mode', 1);
         ini_set('session.cookie_lifetime', 0); // Session cookies only
         ini_set('session.gc_maxlifetime', 3600); // 1 hour
@@ -230,11 +230,10 @@ class App
             ");
               $db->bind(':level', $level);
             $db->bind(':message', $message);
-            $db->bind(':data', json_encode($data));
-            // Truncate component to fit database column (assuming 50 chars max)
+            $db->bind(':data', json_encode($data));            // Truncate component to fit database column (assuming 50 chars max)
             $component = $data['file'] ?? null;
             if ($component && strlen($component) > 50) {
-                $component = substr($component, 0, 47) . '...';
+                $component = substr($component ?? '', 0, 47) . '...';
             }
             $db->bind(':component', $component);
             $db->bind(':url', $_SERVER['REQUEST_URI'] ?? null);

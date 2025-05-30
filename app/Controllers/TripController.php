@@ -152,10 +152,10 @@ class TripController extends Controller
         
         // Check for badges
         $tripModel->checkBadges($userId);
-        
-        // Log the creation
+          // Log the creation
         $logModel = $this->model('Log');
-        $logModel::write('INFO', "Trip created for {$destination['name']}", [
+        $destinationName = $destination['name'] ?? 'unknown';
+        $logModel::write('INFO', "Trip created for {$destinationName}", [
             'user_id' => $userId,
             'trip_id' => $tripId,
             'destination_id' => $destinationId
@@ -302,10 +302,10 @@ class TripController extends Controller
         
         // Check for badges
         $tripModel->checkBadges($userId);
-        
-        // Log the update
+          // Log the update
         $logModel = $this->model('Log');
-        $logModel::write('INFO', "Trip updated for {$trip['destination_name']}", [
+        $destinationName = $trip['destination_name'] ?? 'unknown';
+        $logModel::write('INFO', "Trip updated for {$destinationName}", [
             'user_id' => $userId,
             'trip_id' => $id
         ], 'Trip');
@@ -357,10 +357,10 @@ class TripController extends Controller
             $this->redirect('/trips/' . $id);
             return;
         }
-        
-        // Log the deletion
+          // Log the deletion
         $logModel = $this->model('Log');
-        $logModel::write('INFO', "Trip deleted for {$trip['destination_name']}", [
+        $destinationName = $trip['destination_name'] ?? 'unknown';
+        $logModel::write('INFO', "Trip deleted for {$destinationName}", [
             'user_id' => $userId,
             'trip_id' => $id
         ], 'Trip');
@@ -424,10 +424,10 @@ class TripController extends Controller
         
         // Check for badges
         $tripModel->checkBadges($userId);
-        
-        // Log the status update
+          // Log the status update
         $logModel = $this->model('Log');
-        $logModel::write('INFO', "Trip status updated for {$trip['destination_name']} to {$status}", [
+        $destinationName = $trip['destination_name'] ?? 'unknown';
+        $logModel::write('INFO', "Trip status updated for {$destinationName} to {$status}", [
             'user_id' => $userId,
             'trip_id' => $id,
             'status' => $status

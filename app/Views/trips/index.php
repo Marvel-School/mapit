@@ -131,7 +131,7 @@
                                                         </span>
                                                         <?php if (!empty($trip['destination_description'])): ?>
                                                             <small class="text-muted">
-                                                                <?= htmlspecialchars(substr($trip['destination_description'], 0, 50)); ?>
+                                                                <?= htmlspecialchars(substr($trip['destination_description'] ?? '', 0, 50)); ?>
                                                                 <?= strlen($trip['destination_description']) > 50 ? '...' : ''; ?>
                                                             </small>
                                                         <?php endif; ?>

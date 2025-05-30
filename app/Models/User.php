@@ -6,9 +6,8 @@ use App\Core\Model;
 
 class User extends Model
 {
-    protected $table = 'users';
-    protected $fillable = [
-        'username', 'email', 'password_hash', 'role', 'name', 'bio', 'country', 'website', 'avatar', 'settings'
+    protected $table = 'users';    protected $fillable = [
+        'username', 'email', 'password_hash', 'role', 'name', 'bio', 'country', 'website', 'avatar', 'settings', 'last_login'
     ];
     
     /**
@@ -84,13 +83,39 @@ class User extends Model
             $logModel::write('WARN', "Login failed: User not found with identifier: {$username}", [], 'Authentication');
             return false;
         }
-        
-        // Verify password if user exists
+          // Verify password if user exists
         if (password_verify($password, $user['password_hash'])) {
-            $logModel::write('INFO', "Login successful for user: {$user['username']}", ['user_id' => $user['id']], 'Authentication');
+            $username = $user['username'] ?? 'unknown';
+            $logModel::write('INFO', "Login successful for user: {$username}", ['user_id' => $user['id']], 'Authentication');
             return $user;
         } else {
-            $logModel::write('WARN', "Login failed: Invalid password for user: {$user['username']}", ['user_id' => $user['id']], 'Authentication');
+            $username = $user['username'] ?? 'unknown';
+            $logModel::write('WARN', "Login failed: Invalid password for user: {$username}", ['user_id' => $user['id']], 'Authentication');
+            return false;
+        }
+    }
+    
+    /**
+     * Update the last login timestamp for a user
+     * 
+     * @param int $userId
+     * @return bool
+     */
+    public function updateLastLogin($userId)
+    {
+        try {
+            $updated = $this->update($userId, ['last_login' => date('Y-m-d H:i:s')]);
+            if ($updated) {
+                $logModel = new \App\Models\Log();
+                $logModel::write('DEBUG', "Last login updated for user ID: {$userId}", ['user_id' => $userId], 'Authentication');
+            }
+            return $updated;
+        } catch (\Exception $e) {
+            $logModel = new \App\Models\Log();
+            $logModel::write('ERROR', "Failed to update last login for user ID: {$userId}", [
+                'user_id' => $userId,
+                'error' => $e->getMessage()
+            ], 'Authentication');
             return false;
         }
     }
@@ -185,25 +210,23 @@ class User extends Model
             // Get progress based on badge type
             $count = 0;
             
-            switch($badge['name']) {
-                case 'Globetrotter':
-                    // Count all destinations visited
+            switch($badge['name']) {                case 'Globetrotter':
+                    // Count all destinations visited (handle both 'visited' and 'completed' statuses)
                     $this->db->query("
                         SELECT COUNT(*) as count 
                         FROM trips 
-                        WHERE user_id = :user_id AND status = 'visited'
+                        WHERE user_id = :user_id AND status IN ('visited', 'completed')
                     ");
                     $this->db->bind(':user_id', $userId);
                     $result = $this->db->single();
                     $count = $result['count'];
                     break;
-                
-                case 'Adventurer':
-                    // Count adventure trips
+                  case 'Adventurer':
+                    // Count adventure trips (handle both 'visited' and 'completed' statuses)
                     $this->db->query("
                         SELECT COUNT(*) as count 
                         FROM trips 
-                        WHERE user_id = :user_id AND type = 'adventure' AND status = 'visited'
+                        WHERE user_id = :user_id AND type = 'adventure' AND status IN ('visited', 'completed')
                     ");
                     $this->db->bind(':user_id', $userId);
                     $result = $this->db->single();
@@ -211,11 +234,11 @@ class User extends Model
                     break;
                     
                 case 'Relaxation Master':
-                    // Count relaxation trips
+                    // Count relaxation trips (handle both 'visited' and 'completed' statuses)
                     $this->db->query("
                         SELECT COUNT(*) as count 
                         FROM trips 
-                        WHERE user_id = :user_id AND type = 'relaxation' AND status = 'visited'
+                        WHERE user_id = :user_id AND type = 'relaxation' AND status IN ('visited', 'completed')
                     ");
                     $this->db->bind(':user_id', $userId);
                     $result = $this->db->single();

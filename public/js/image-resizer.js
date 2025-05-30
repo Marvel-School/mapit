@@ -10,6 +10,8 @@ class ImageResizer {
         this.img = null;
         this.cropperModal = null;
         this.isInitialized = false;
+        this.isProcessing = false; // Add processing state tracking
+        this.processingStartTime = null; // Track when processing started
         this.minSize = 800; // Required size for avatars
         this.maxCanvasSize = 800; // Canvas display size
         this.originalFile = null;
@@ -24,15 +26,28 @@ class ImageResizer {
         this.onError = options.onError || null;
         
         this.init();
-    }
-
-    init() {
+    }    init() {
         this.createCropperModal();
         this.attachEventListeners();
+        this.startSafetyTimeout();
         this.isInitialized = true;
     }
 
-    createCropperModal() {
+    // Safety timeout to prevent indefinite processing
+    startSafetyTimeout() {
+        setInterval(() => {
+            if (this.isProcessing && this.processingStartTime) {
+                const elapsed = Date.now() - this.processingStartTime;
+                if (elapsed > 30000) { // 30 seconds
+                    console.warn('⚠️ Safety timeout triggered - forcing cleanup after 30 seconds');
+                    this.forceCleanupModal();
+                    if (this.onError) {
+                        this.onError('Operation timed out after 30 seconds');
+                    }
+                }
+            }
+        }, 5000); // Check every 5 seconds
+    }createCropperModal() {
         // Create modal HTML
         const modalHTML = `
             <div class="modal fade" id="imageCropperModal" tabindex="-1" aria-labelledby="imageCropperModalLabel" aria-hidden="true">
@@ -122,7 +137,18 @@ class ImageResizer {
         this.ctx = this.canvas.getContext('2d');
         this.previewCanvas = document.getElementById('previewCanvas');
         this.previewCtx = this.previewCanvas.getContext('2d');
-          // Initialize crop parameters
+        
+        // Add modal event listeners for proper cleanup
+        const modalElement = document.getElementById('imageCropperModal');
+        modalElement.addEventListener('hide.bs.modal', () => {
+            this.forceCleanupModal();
+        });
+        
+        modalElement.addEventListener('hidden.bs.modal', () => {
+            this.forceCleanupModal();
+        });
+        
+        // Initialize crop parameters
         this.cropParams = {
             x: 0,
             y: 0,
@@ -130,9 +156,7 @@ class ImageResizer {
             height: this.targetHeight,
             scale: 1
         };
-    }
-
-    attachEventListeners() {
+    }    attachEventListeners() {
         // Dimension sliders
         document.getElementById('cropWidth').addEventListener('input', (e) => {
             this.cropParams.width = parseInt(e.target.value);
@@ -162,38 +186,138 @@ class ImageResizer {
         this.canvas.addEventListener('touchstart', (e) => this.startDrag(e));
         this.canvas.addEventListener('touchmove', (e) => this.drag(e));
         this.canvas.addEventListener('touchend', () => this.endDrag());
+        
+        // Emergency cleanup handlers
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && this.cropperModal && document.getElementById('imageCropperModal').classList.contains('show')) {
+                this.forceCleanupModal();
+            }
+        });
+        
+        window.addEventListener('beforeunload', () => {
+            this.forceCleanupModal();
+        });
+    }
+
+    // Force cleanup modal backdrop and state
+    forceCleanupModal() {
+        try {
+            // Remove any lingering modal backdrops
+            document.querySelectorAll('.modal-backdrop').forEach(backdrop => {
+                backdrop.remove();
+            });
+            
+            // Remove modal-open class from body
+            document.body.classList.remove('modal-open');
+            
+            // Reset body styles that Bootstrap may have set
+            document.body.style.overflow = '';
+            document.body.style.paddingRight = '';
+            
+            // Reset processing state
+            this.isProcessing = false;
+            this.processingStartTime = null;
+            
+            console.log('Modal cleanup completed');
+        } catch (error) {
+            console.error('Error during modal cleanup:', error);
+        }
     }    openCropper(file, onSave) {
+        if (!file || !file.type || !file.type.startsWith('image/')) {
+            console.error('Invalid file provided to openCropper');
+            if (this.onError) this.onError('Invalid image file provided');
+            return;
+        }
+        
         this.originalFile = file;
         this.onSaveCallback = onSave;
+        this.isProcessing = true;
+        this.processingStartTime = Date.now();
 
         const reader = new FileReader();
         reader.onload = (e) => {
             this.img = new Image();
             this.img.onload = () => {
+                // Validate image dimensions
+                if (!this.img.width || !this.img.height || this.img.width < 1 || this.img.height < 1) {
+                    console.error('Invalid image dimensions:', this.img.width, this.img.height);
+                    this.isProcessing = false;
+                    if (this.onError) this.onError('Invalid image dimensions');
+                    return;
+                }
+                
+                console.log('Image loaded successfully:', this.img.width, 'x', this.img.height);
                 this.setupCanvas();
                 this.updateImageInfo();
                 this.cropperModal.show();
+                this.isProcessing = false;
             };
+            
+            this.img.onerror = () => {
+                console.error('Failed to load image');
+                this.isProcessing = false;
+                if (this.onError) this.onError('Failed to load image file');
+            };
+            
             this.img.src = e.target.result;
         };
+        
+        reader.onerror = () => {
+            console.error('Failed to read file');
+            this.isProcessing = false;
+            if (this.onError) this.onError('Failed to read image file');
+        };
+        
         reader.readAsDataURL(file);
     }
 
     // Alternative method name for compatibility
     openModal(file) {
+        if (!file || !file.type || !file.type.startsWith('image/')) {
+            console.error('Invalid file provided to openModal');
+            if (this.onError) this.onError('Invalid image file provided');
+            return;
+        }
+        
         this.originalFile = file;
         this.onSaveCallback = null; // Use callback configuration instead
+        this.isProcessing = true;
+        this.processingStartTime = Date.now();
 
         const reader = new FileReader();
         reader.onload = (e) => {
             this.img = new Image();
             this.img.onload = () => {
+                // Validate image dimensions
+                if (!this.img.width || !this.img.height || this.img.width < 1 || this.img.height < 1) {
+                    console.error('Invalid image dimensions:', this.img.width, this.img.height);
+                    this.isProcessing = false;
+                    if (this.onError) this.onError('Invalid image dimensions');
+                    return;
+                }
+                
+                console.log('Image loaded successfully:', this.img.width, 'x', this.img.height);
                 this.setupCanvas();
                 this.updateImageInfo();
                 this.cropperModal.show();
+                this.isProcessing = false;
             };
+            
+            this.img.onerror = () => {
+                console.error('Failed to load image');
+                this.isProcessing = false;
+                if (this.onError) this.onError('Failed to load image file');
+            };
+            
             this.img.src = e.target.result;
         };
+        
+        reader.onerror = () => {
+            console.error('Failed to read file');
+            this.isProcessing = false;
+            if (this.onError) this.onError('Failed to read image file');
+        };
+        
         reader.readAsDataURL(file);
     }
 
@@ -238,77 +362,125 @@ class ImageResizer {
         this.centerCrop();
         this.drawCanvas();
         this.updatePreview();
-    }
-
-    drawCanvas() {
-        // Clear canvas
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    }    drawCanvas() {
+        // Validate image and canvas before drawing
+        if (!this.img || !this.img.complete || !this.img.naturalWidth || !this.canvas || !this.ctx) {
+            console.warn('Cannot draw canvas: image or canvas not ready');
+            return;
+        }
         
-        // Draw image
-        this.ctx.drawImage(
-            this.img, 
-            0, 0, 
-            this.img.width, this.img.height,
-            0, 0, 
-            this.canvas.width, this.canvas.height
-        );
-        
-        // Draw crop overlay
-        this.drawCropOverlay();
+        try {
+            // Clear canvas
+            this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+            
+            // Draw image
+            this.ctx.drawImage(
+                this.img,
+                0, 0, 
+                this.img.width, this.img.height,
+                0, 0, 
+                this.canvas.width, this.canvas.height
+            );
+            
+            // Draw crop overlay
+            this.drawCropOverlay();
+        } catch (error) {
+            console.error('Error drawing canvas:', error);
+            if (this.onError) this.onError('Error drawing image: ' + error.message);
+        }
     }
 
     drawCropOverlay() {
-        const scaledX = this.cropParams.x * this.cropParams.scale;
-        const scaledY = this.cropParams.y * this.cropParams.scale;
-        const scaledWidth = this.cropParams.width * this.cropParams.scale;
-        const scaledHeight = this.cropParams.height * this.cropParams.scale;
+        // Validate image and canvas before drawing
+        if (!this.img || !this.img.complete || !this.img.naturalWidth || !this.canvas || !this.ctx) {
+            console.warn('Cannot draw crop overlay: image or canvas not ready');
+            return;
+        }
         
-        // Draw semi-transparent overlay
-        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-        
-        // Clear crop area
-        this.ctx.clearRect(scaledX, scaledY, scaledWidth, scaledHeight);
-        
-        // Redraw image in crop area
-        this.ctx.drawImage(
-            this.img,
-            this.cropParams.x, this.cropParams.y, this.cropParams.width, this.cropParams.height,
-            scaledX, scaledY, scaledWidth, scaledHeight
-        );
-        
-        // Draw crop border
-        this.ctx.strokeStyle = '#007bff';
-        this.ctx.lineWidth = 2;
-        this.ctx.strokeRect(scaledX, scaledY, scaledWidth, scaledHeight);
-        
-        // Draw corner handles
-        this.drawHandle(scaledX, scaledY);
-        this.drawHandle(scaledX + scaledWidth, scaledY);
-        this.drawHandle(scaledX, scaledY + scaledHeight);
-        this.drawHandle(scaledX + scaledWidth, scaledY + scaledHeight);
+        try {
+            const scaledX = this.cropParams.x * this.cropParams.scale;
+            const scaledY = this.cropParams.y * this.cropParams.scale;
+            const scaledWidth = this.cropParams.width * this.cropParams.scale;
+            const scaledHeight = this.cropParams.height * this.cropParams.scale;
+            
+            // Validate crop parameters
+            if (scaledX < 0 || scaledY < 0 || scaledWidth <= 0 || scaledHeight <= 0) {
+                console.warn('Invalid crop parameters:', this.cropParams);
+                return;
+            }
+            
+            // Draw semi-transparent overlay
+            this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+            this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+            
+            // Clear crop area
+            this.ctx.clearRect(scaledX, scaledY, scaledWidth, scaledHeight);
+            
+            // Redraw image in crop area - validate crop bounds
+            const cropX = Math.max(0, Math.min(this.cropParams.x, this.img.width - this.cropParams.width));
+            const cropY = Math.max(0, Math.min(this.cropParams.y, this.img.height - this.cropParams.height));
+            const cropWidth = Math.min(this.cropParams.width, this.img.width - cropX);
+            const cropHeight = Math.min(this.cropParams.height, this.img.height - cropY);
+            
+            if (cropWidth > 0 && cropHeight > 0) {
+                this.ctx.drawImage(
+                    this.img,
+                    cropX, cropY, cropWidth, cropHeight,
+                    scaledX, scaledY, scaledWidth, scaledHeight
+                );
+            }
+            
+            // Draw crop border
+            this.ctx.strokeStyle = '#007bff';
+            this.ctx.lineWidth = 2;
+            this.ctx.strokeRect(scaledX, scaledY, scaledWidth, scaledHeight);
+            
+            // Draw corner handles
+            this.drawHandle(scaledX, scaledY);
+            this.drawHandle(scaledX + scaledWidth, scaledY);
+            this.drawHandle(scaledX, scaledY + scaledHeight);
+            this.drawHandle(scaledX + scaledWidth, scaledY + scaledHeight);
+        } catch (error) {
+            console.error('Error drawing crop overlay:', error);
+            if (this.onError) this.onError('Error drawing crop overlay: ' + error.message);
+        }
     }
 
     drawHandle(x, y) {
         this.ctx.fillStyle = '#007bff';
         this.ctx.fillRect(x - 4, y - 4, 8, 8);
-    }
-
-    updatePreview() {
-        if (!this.img) return;
+    }    updatePreview() {
+        // Validate image and preview canvas before drawing
+        if (!this.img || !this.img.complete || !this.img.naturalWidth || !this.previewCanvas || !this.previewCtx) {
+            console.warn('Cannot update preview: image or preview canvas not ready');
+            return;
+        }
         
-        // Clear preview canvas
-        this.previewCtx.clearRect(0, 0, 200, 200);
-        
-        // Draw cropped image to preview
-        this.previewCtx.drawImage(
-            this.img,
-            this.cropParams.x, this.cropParams.y, this.cropParams.width, this.cropParams.height,
-            0, 0, 200, 200
-        );
-        
-        this.drawCanvas();
-        this.updateFileSize();
+        try {
+            // Clear preview canvas
+            this.previewCtx.clearRect(0, 0, 200, 200);
+            
+            // Validate crop parameters
+            const cropX = Math.max(0, Math.min(this.cropParams.x, this.img.width - this.cropParams.width));
+            const cropY = Math.max(0, Math.min(this.cropParams.y, this.img.height - this.cropParams.height));
+            const cropWidth = Math.min(this.cropParams.width, this.img.width - cropX);
+            const cropHeight = Math.min(this.cropParams.height, this.img.height - cropY);
+            
+            if (cropWidth > 0 && cropHeight > 0) {
+                // Draw cropped image to preview
+                this.previewCtx.drawImage(
+                    this.img,
+                    cropX, cropY, cropWidth, cropHeight,
+                    0, 0, 200, 200
+                );
+            }
+            
+            this.drawCanvas();
+            this.updateFileSize();
+        } catch (error) {
+            console.error('Error updating preview:', error);
+            if (this.onError) this.onError('Error updating preview: ' + error.message);
+        }
     }
 
     centerCrop() {
@@ -410,51 +582,100 @@ class ImageResizer {
         const i = Math.floor(Math.log(bytes) / Math.log(k));
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     }    saveResizedImage() {
-        // Create final canvas at target dimensions
-        const finalCanvas = document.createElement('canvas');
-        finalCanvas.width = this.targetWidth;
-        finalCanvas.height = this.targetHeight;
-        const finalCtx = finalCanvas.getContext('2d');
+        // Validate image before processing
+        if (!this.img || !this.img.complete || !this.img.naturalWidth) {
+            console.error('Cannot save: image not ready');
+            if (this.onError) this.onError('Image not ready for processing');
+            return;
+        }
         
-        // Draw cropped image to final canvas
-        finalCtx.drawImage(
-            this.img,
-            this.cropParams.x, this.cropParams.y, this.cropParams.width, this.cropParams.height,
-            0, 0, this.targetWidth, this.targetHeight
-        );
+        // Prevent multiple saves
+        if (this.isProcessing) {
+            console.log('Save already in progress, ignoring duplicate request');
+            return;
+        }
         
-        // Convert to blob
-        finalCanvas.toBlob((blob) => {
-            try {
-                // Create new file object
-                const fileExtension = this.outputFormat === 'jpeg' ? 'jpg' : this.outputFormat;
-                const fileName = this.originalFile.name.replace(/\.[^/.]+$/, '') + '_resized.' + fileExtension;
-                const newFile = new File([blob], fileName, {
-                    type: `image/${this.outputFormat}`,
-                    lastModified: Date.now()
-                });
-                
-                // Get data URL for callback
-                const dataUrl = finalCanvas.toDataURL(`image/${this.outputFormat}`, this.outputQuality);
-                
-                // Call appropriate callback
-                if (this.onSaveCallback) {
-                    // Legacy callback support
-                    this.onSaveCallback(newFile);
-                } else if (this.onResize) {
-                    // New callback configuration
-                    this.onResize(newFile, dataUrl);
-                }
-                
-                // Close modal
-                this.cropperModal.hide();
-            } catch (error) {
-                console.error('Error saving resized image:', error);
-                if (this.onError) {
-                    this.onError('Failed to save resized image: ' + error.message);
-                }
+        this.isProcessing = true;
+        this.processingStartTime = Date.now();
+        
+        try {
+            // Create final canvas at target dimensions
+            const finalCanvas = document.createElement('canvas');
+            finalCanvas.width = this.targetWidth;
+            finalCanvas.height = this.targetHeight;
+            const finalCtx = finalCanvas.getContext('2d');
+            
+            // Validate crop parameters one more time
+            const cropX = Math.max(0, Math.min(this.cropParams.x, this.img.width - this.cropParams.width));
+            const cropY = Math.max(0, Math.min(this.cropParams.y, this.img.height - this.cropParams.height));
+            const cropWidth = Math.min(this.cropParams.width, this.img.width - cropX);
+            const cropHeight = Math.min(this.cropParams.height, this.img.height - cropY);
+            
+            if (cropWidth <= 0 || cropHeight <= 0) {
+                throw new Error('Invalid crop dimensions');
             }
-        }, `image/${this.outputFormat}`, this.outputQuality);
+            
+            // Draw cropped image to final canvas
+            finalCtx.drawImage(
+                this.img,
+                cropX, cropY, cropWidth, cropHeight,
+                0, 0, this.targetWidth, this.targetHeight
+            );
+            
+            // Convert to blob
+            finalCanvas.toBlob((blob) => {
+                try {
+                    if (!blob) {
+                        throw new Error('Failed to create image blob');
+                    }
+                    
+                    // Create new file object
+                    const fileExtension = this.outputFormat === 'jpeg' ? 'jpg' : this.outputFormat;
+                    const fileName = this.originalFile.name.replace(/\.[^/.]+$/, '') + '_resized.' + fileExtension;
+                    const newFile = new File([blob], fileName, {
+                        type: `image/${this.outputFormat}`,
+                        lastModified: Date.now()
+                    });
+                    
+                    // Get data URL for callback
+                    const dataUrl = finalCanvas.toDataURL(`image/${this.outputFormat}`, this.outputQuality);
+                    
+                    // Call appropriate callback
+                    if (this.onSaveCallback) {
+                        // Legacy callback support
+                        this.onSaveCallback(newFile);
+                    } else if (this.onResize) {
+                        // New callback configuration
+                        this.onResize(newFile, dataUrl);
+                    }
+                    
+                    // Close modal with proper cleanup
+                    this.cropperModal.hide();
+                    
+                    // Force cleanup after a brief delay to ensure modal is closed
+                    setTimeout(() => {
+                        this.forceCleanupModal();
+                    }, 100);
+                    
+                } catch (error) {
+                    console.error('Error saving resized image:', error);
+                    if (this.onError) {
+                        this.onError('Failed to save resized image: ' + error.message);
+                    }
+                } finally {
+                    this.isProcessing = false;
+                    this.processingStartTime = null;
+                }
+            }, `image/${this.outputFormat}`, this.outputQuality);
+            
+        } catch (error) {
+            console.error('Error in saveResizedImage:', error);
+            if (this.onError) {
+                this.onError('Failed to process image: ' + error.message);
+            }
+            this.isProcessing = false;
+            this.processingStartTime = null;
+        }
     }
 }
 

@@ -114,12 +114,11 @@ class Trip extends Model
         $this->db->bind(':user_id', $userId);
         $result = $this->db->single();
         $stats['planned'] = (int) $result['count'];
-        
-        // Count visited trips
+          // Count visited/completed trips (handle both statuses for backward compatibility)
         $this->db->query("
             SELECT COUNT(*) as count
             FROM trips
-            WHERE user_id = :user_id AND status = 'visited'
+            WHERE user_id = :user_id AND status IN ('visited', 'completed')
         ");
         $this->db->bind(':user_id', $userId);
         $result = $this->db->single();
@@ -154,12 +153,12 @@ class Trip extends Model
      */
     public function getCountriesVisitedCount($userId)
     {
-        // Count distinct countries from visited destinations
+        // Count distinct countries from visited/completed destinations (handle both statuses)
         $this->db->query("
             SELECT COUNT(DISTINCT d.country) as count
             FROM trips t
             JOIN destinations d ON t.destination_id = d.id
-            WHERE t.user_id = :user_id AND t.status = 'visited' AND d.country IS NOT NULL AND d.country != ''
+            WHERE t.user_id = :user_id AND t.status IN ('visited', 'completed') AND d.country IS NOT NULL AND d.country != ''
         ");
         
         $this->db->bind(':user_id', $userId);

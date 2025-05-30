@@ -80,8 +80,7 @@ class DashboardController extends Controller
      * Display user profile
      * 
      * @return void
-     */
-    public function profile()
+     */    public function profile()
     {
         $userId = $_SESSION['user_id'];
         
@@ -93,6 +92,31 @@ class DashboardController extends Controller
         $badgeModel = $this->model('Badge');
         $badges = $badgeModel->getUserBadges($userId);
         
+        // Get trip statistics for profile stats display
+        $tripModel = $this->model('Trip');
+        $tripStats = $tripModel->getUserStats($userId);
+        
+        // Calculate profile statistics
+        $profileStats = [
+            'trips_count' => ($tripStats['visited'] ?? 0) + ($tripStats['planned'] ?? 0),
+            'countries_visited' => $tripModel->getCountriesVisitedCount($userId),
+            'badges_earned' => count($badges)
+        ];
+        
+        // Get badge progress for next achievement
+        $badgeProgress = $userModel->checkBadgeProgress($userId);
+        $nextBadge = null;
+        if (!empty($badgeProgress)) {
+            // Find the closest badge to earning (highest percentage but not 100%)
+            foreach ($badgeProgress as $progress) {
+                if (!$progress['earned'] && $progress['percent'] > 0) {
+                    if (!$nextBadge || $progress['percent'] > $nextBadge['percent']) {
+                        $nextBadge = $progress;
+                    }
+                }
+            }
+        }
+        
         // Get countries as associative array for dropdown
         $countries = $this->getCountries();
         
@@ -100,9 +124,11 @@ class DashboardController extends Controller
             'title' => 'My Profile',
             'user' => $user,
             'badges' => $badges,
+            'profileStats' => $profileStats,
+            'nextBadge' => $nextBadge,
             'countries' => $countries
         ]);
-    }    /**
+    }/**
      * Update user profile
      * 
      * @return void
@@ -149,24 +175,20 @@ class DashboardController extends Controller
                         $imageType = strtolower($matches[1]);
                         $imageData = base64_decode($matches[2]);
                         
-                        if ($imageData !== false) {
-                            // Generate secure filename
+                        if ($imageData !== false) {                            // Generate secure filename
                             $filename = 'avatar_' . $userId . '_' . time() . '.jpg'; // Always save as JPEG
-                            $uploadPath = 'public/images/avatars/' . $filename;
+                            $uploadPath = __DIR__ . '/../../public/images/avatars/' . $filename;
                             
                             // Ensure directory exists
                             $dirPath = dirname($uploadPath);
                             if (!is_dir($dirPath)) {
                                 mkdir($dirPath, 0755, true);
-                            }
-                            
-                            // Save the resized image
+                            }// Save the resized image
                             if (file_put_contents($uploadPath, $imageData)) {
                                 $avatarFilename = $filename;
-                                
-                                // Delete old avatar if exists
+                                  // Delete old avatar if exists
                                 if (!empty($user['avatar'])) {
-                                    $oldAvatarPath = 'public/images/avatars/' . $user['avatar'];
+                                    $oldAvatarPath = __DIR__ . '/../../public/images/avatars/' . $user['avatar'];
                                     if (file_exists($oldAvatarPath)) {
                                         unlink($oldAvatarPath);
                                     }
@@ -201,11 +223,10 @@ class DashboardController extends Controller
                     $avatarFilename = $fileUpload->uploadImage($_FILES['avatar'], 'avatars', $userId);
                     
                     if (!$avatarFilename) {
-                        $errors = array_merge($errors, $fileUpload->getErrors());
-                    } else {
-                        // Delete old avatar if exists
+                        $errors = array_merge($errors, $fileUpload->getErrors());                    } else {
+                        // Delete old avatar if exists using absolute path
                         if (!empty($user['avatar'])) {
-                            $oldAvatarPath = 'public/images/avatars/' . $user['avatar'];
+                            $oldAvatarPath = __DIR__ . '/../../public/images/avatars/' . $user['avatar'];
                             if (file_exists($oldAvatarPath)) {
                                 unlink($oldAvatarPath);
                             }
@@ -274,12 +295,36 @@ class DashboardController extends Controller
             if ($newPassword !== $confirmPassword) {
                 $errors['new_password_confirm'] = 'Passwords do not match';
             }
-        }
-          // If there are errors, return to profile page with errors
+        }        // If there are errors, return to profile page with errors
         if (!empty($errors)) {
             // Get user badges
             $badgeModel = $this->model('Badge');
             $badges = $badgeModel->getUserBadges($userId);
+            
+            // Get trip statistics for profile stats display
+            $tripModel = $this->model('Trip');
+            $tripStats = $tripModel->getUserStats($userId);
+            
+            // Calculate profile statistics
+            $profileStats = [
+                'trips_count' => ($tripStats['visited'] ?? 0) + ($tripStats['planned'] ?? 0),
+                'countries_visited' => $tripModel->getCountriesVisitedCount($userId),
+                'badges_earned' => count($badges)
+            ];
+            
+            // Get badge progress for next achievement
+            $badgeProgress = $userModel->checkBadgeProgress($userId);
+            $nextBadge = null;
+            if (!empty($badgeProgress)) {
+                // Find the closest badge to earning (highest percentage but not 100%)
+                foreach ($badgeProgress as $progress) {
+                    if (!$progress['earned'] && $progress['percent'] > 0) {
+                        if (!$nextBadge || $progress['percent'] > $nextBadge['percent']) {
+                            $nextBadge = $progress;
+                        }
+                    }
+                }
+            }
             
             // Get countries as associative array for dropdown
             $countries = $this->getCountries();
@@ -288,11 +333,13 @@ class DashboardController extends Controller
                 'title' => 'My Profile',
                 'user' => $user,
                 'badges' => $badges,
+                'profileStats' => $profileStats,
+                'nextBadge' => $nextBadge,
                 'countries' => $countries,
                 'errors' => $errors
             ]);
             return;
-        }        // Update user data
+        }// Update user data
         $userData = [
             'name' => $name,
             'username' => $username,
@@ -383,5 +430,62 @@ class DashboardController extends Controller
                 'errors' => ['update' => 'An unexpected error occurred while updating your profile.']
             ]);
         }
+    }
+
+    /**
+     * Delete user avatar/profile picture
+     * 
+     * @return void
+     */
+    public function deleteAvatar()
+    {
+        try {
+            $userId = $_SESSION['user_id'];
+            
+            // Validate CSRF token
+            $this->validateCSRF('/profile');
+            
+            // Get user data
+            $userModel = $this->model('User');
+            $user = $userModel->find($userId);
+            
+            if (!$user) {
+                $_SESSION['error'] = 'User not found';
+                $this->redirect('/profile');
+                return;
+            }
+              // Check if user has an avatar to delete
+            if (!empty($user['avatar'])) {
+                // Delete the avatar file from filesystem using absolute path
+                $avatarPath = __DIR__ . '/../../public/images/avatars/' . $user['avatar'];
+                if (file_exists($avatarPath)) {
+                    unlink($avatarPath);
+                }
+                
+                // Update database to remove avatar reference
+                $updated = $userModel->update($userId, ['avatar' => null]);
+                  if ($updated) {
+                    // Log the avatar deletion
+                    $logModel = $this->model('Log');
+                    $username = $user['username'] ?? 'unknown';
+                    $logModel::write('INFO', "Avatar deleted for user: {$username}", [
+                        'user_id' => $userId,
+                        'deleted_avatar' => $user['avatar']
+                    ], 'User');
+                    
+                    $_SESSION['success'] = 'Profile picture deleted successfully';
+                } else {
+                    $_SESSION['error'] = 'Failed to delete profile picture from database';
+                }
+            } else {
+                $_SESSION['info'] = 'No profile picture to delete';
+            }
+            
+        } catch (\Exception $e) {
+            error_log("Avatar deletion error: " . $e->getMessage());
+            $_SESSION['error'] = 'An error occurred while deleting profile picture';
+        }
+        
+        $this->redirect('/profile');
     }
 }

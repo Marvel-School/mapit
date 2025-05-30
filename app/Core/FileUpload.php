@@ -25,13 +25,12 @@ class FileUpload
     const ALLOWED_IMAGE_EXTENSIONS = [
         'jpg', 'jpeg', 'png', 'gif', 'webp'
     ];
-    
-    /**
-     * Upload directory paths
+      /**
+     * Upload directory paths (relative to project root)
      */
     const UPLOAD_PATHS = [
-        'avatars' => 'public/images/avatars/',
-        'destinations' => 'public/images/destinations/'
+        'avatars' => '/../../public/images/avatars/',
+        'destinations' => '/../../public/images/destinations/'
     ];
     
     /**
@@ -136,9 +135,8 @@ class FileUpload
             
             // Generate secure filename
             $filename = $this->generateSecureFilename($extension, $userId);
-            
-            // Ensure upload directory exists and is secure
-            $uploadPath = self::UPLOAD_PATHS[$type];
+              // Ensure upload directory exists and is secure
+            $uploadPath = __DIR__ . self::UPLOAD_PATHS[$type];
             if (!$this->ensureSecureUploadDirectory($uploadPath)) {
                 $this->errors[] = 'Upload directory setup failed';
                 return false;
@@ -208,9 +206,8 @@ class FileUpload
             // Validate filename format (security check)
             if (!preg_match('/^[a-f0-9]{32}_\d+\.[a-z]{3,4}$/', $filename)) {
                 return false;
-            }
-            
-            $filePath = self::UPLOAD_PATHS[$type] . $filename;
+            }            
+            $filePath = __DIR__ . self::UPLOAD_PATHS[$type] . $filename;
             
             if (file_exists($filePath)) {
                 $deleted = unlink($filePath);

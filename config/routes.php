@@ -29,6 +29,7 @@ $this->post('reset-password', 'AuthController', 'processResetPassword');
 $this->get('dashboard', 'DashboardController', 'index');
 $this->get('profile', 'DashboardController', 'profile');
 $this->post('profile', 'DashboardController', 'updateProfile');
+$this->post('profile/delete-avatar', 'DashboardController', 'deleteAvatar');
 
 // Destination routes
 $this->get('destinations', 'DestinationController', 'index');

@@ -168,10 +168,10 @@ class DestinationController extends Controller
             $this->redirect('/admin/destinations/' . $id);
             return;
         }
-        
-        // Log the approval
+          // Log the approval
         $logModel = $this->model('Log');
-        $logModel::write('INFO', "Destination approved: {$destination['name']}", [
+        $destinationName = $destination['name'] ?? 'unknown';
+        $logModel::write('INFO', "Destination approved: {$destinationName}", [
             'admin_id' => $_SESSION['user_id'],
             'destination_id' => $id
         ], 'Admin');
@@ -214,12 +214,12 @@ class DestinationController extends Controller
         if (!$rejected) {
             $_SESSION['error'] = 'Failed to reject destination';
             $this->redirect('/admin/destinations/' . $id);
-            return;
-        }
+            return;        }
         
         // Log the rejection
         $logModel = $this->model('Log');
-        $logModel::write('INFO', "Destination rejected: {$destination['name']}", [
+        $destinationName = $destination['name'] ?? 'unknown';
+        $logModel::write('INFO', "Destination rejected: {$destinationName}", [
             'admin_id' => $_SESSION['user_id'],
             'destination_id' => $id
         ], 'Admin');
@@ -280,16 +280,15 @@ class DestinationController extends Controller
         if (!$updated) {
             $this->json(['success' => false, 'message' => 'Failed to update status'], 500);
             return;
-        }
-
-        // Log the status change
+        }        // Log the status change
         $logModel = $this->model('Log');
-        $logModel::write('INFO', "Destination status changed: {$destination['name']} to {$newStatus}", [
+        $destinationName = $destination['name'] ?? 'unknown';
+        $logModel::write('INFO', "Destination status changed: {$destinationName} to {$newStatus}", [
             'admin_id' => $_SESSION['user_id'],
             'destination_id' => $id,
             'old_status' => $destination['approval_status'],
             'new_status' => $newStatus
-        ], 'Admin');        $this->json([
+        ], 'Admin');$this->json([
             'success' => true, 
             'message' => "Destination {$newStatus} successfully",
             'status' => $newStatus
@@ -422,11 +421,11 @@ class DestinationController extends Controller
             $this->redirect('/admin/destinations/' . $id . '/edit');
             return;
         }
-        
-        // Log the update
+          // Log the update
         if (!empty($changes)) {
             $logModel = $this->model('Log');
-            $logModel::write('INFO', "Destination updated: {$destination['name']}", [
+            $destinationName = $destination['name'] ?? 'unknown';
+            $logModel::write('INFO', "Destination updated: {$destinationName}", [
                 'admin_id' => $_SESSION['user_id'],
                 'destination_id' => $id,
                 'changes' => $changes
@@ -480,14 +479,13 @@ class DestinationController extends Controller
         if (!$deleted) {
             $this->json(['success' => false, 'message' => 'Failed to delete destination'], 500);
             return;
-        }
-
-        // Log the deletion
+        }        // Log the deletion
         $logModel = $this->model('Log');
-        $logModel::write('INFO', "Destination deleted: {$destination['name']}", [
+        $destinationName = $destination['name'] ?? 'unknown';
+        $logModel::write('INFO', "Destination deleted: {$destinationName}", [
             'admin_id' => $_SESSION['user_id'],
             'destination_id' => $id,
-            'destination_name' => $destination['name']
+            'destination_name' => $destinationName
         ], 'Admin');
 
         $this->json([

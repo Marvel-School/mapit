@@ -42,7 +42,7 @@
                 <div class="text-center mb-3">
                     <div class="avatar-lg mx-auto mb-3">
                         <div class="avatar-initial rounded-circle bg-primary">
-                            <?= strtoupper(substr($user['username'], 0, 2)); ?>
+                            <?= strtoupper(substr($user['username'] ?? '', 0, 2)); ?>
                         </div>
                     </div>
                     <h5 class="mb-1"><?= htmlspecialchars($user['username']); ?></h5>
@@ -74,10 +74,9 @@
                 <div class="row">
                     <div class="col-sm-3">
                         <p class="mb-0"><strong>Last Login</strong></p>
-                    </div>
-                    <div class="col-sm-9">
+                    </div>                    <div class="col-sm-9">
                         <p class="text-muted mb-0">
-                            <?= $user['last_login'] ? date('F j, Y g:i A', strtotime($user['last_login'])) : 'Never'; ?>
+                            <?= isset($user['last_login']) && $user['last_login'] ? date('F j, Y g:i A', strtotime($user['last_login'])) : 'Never'; ?>
                         </p>
                     </div>
                 </div>

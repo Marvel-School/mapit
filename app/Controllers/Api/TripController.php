@@ -10,10 +10,12 @@ class TripController extends Controller
      * Create or update a trip with comprehensive security and validation
      * 
      * @return void
-     */
-    public function store()
+     */    public function store()
     {
         try {
+            // Debug logging
+            error_log("TripController::store() called");
+            
             // Session is already configured and started in App.php
             // Just ensure we have a session (should already be active)
             if (session_status() === PHP_SESSION_NONE) {
@@ -22,23 +24,33 @@ class TripController extends Controller
             
             // Check authentication
             if (!isset($_SESSION['user_id'])) {
+                error_log("No user_id in session");
                 $this->jsonError('Unauthorized', 401);
                 return;
             }
             
+            error_log("User authenticated: " . $_SESSION['user_id']);
+            
             // Rate limiting for API calls
             if (!$this->checkRateLimit('api_trip_store', 10, 60)) { // 10 per minute
+                error_log("Rate limit exceeded");
                 $this->jsonError('Too many requests. Please slow down.', 429);
                 return;
             }
             
             // Get and validate JSON input
-            $input = json_decode(file_get_contents('php://input'), true);
+            $rawInput = file_get_contents('php://input');
+            error_log("Raw input: " . $rawInput);
+            
+            $input = json_decode($rawInput, true);
             
             if (!$input || json_last_error() !== JSON_ERROR_NONE) {
+                error_log("Invalid JSON: " . json_last_error_msg());
                 $this->jsonError('Invalid JSON data', 400);
                 return;
             }
+            
+            error_log("Parsed input: " . print_r($input, true));
             
             // Sanitize and validate input
             $destinationId = $this->validateNumeric($input['destination_id'] ?? null, 1);
@@ -87,10 +99,10 @@ class TripController extends Controller
                     'type' => $type
                 ]);
                 
-                if ($result) {
-                    // Log the update
+                if ($result) {                    // Log the update
                     $logModel = $this->model('Log');
-                    $logModel::write('INFO', "Trip updated via API for {$destination['name']}", [
+                    $destinationName = $destination['name'] ?? 'unknown';
+                    $logModel::write('INFO', "Trip updated via API for {$destinationName}", [
                         'user_id' => $_SESSION['user_id'],
                         'trip_id' => $existingTrip['id'],
                         'destination_id' => $destinationId,
@@ -118,10 +130,10 @@ class TripController extends Controller
                 if ($tripId) {
                     // Check for badges
                     $tripModel->checkBadges($_SESSION['user_id']);
-                    
-                    // Log the creation
+                      // Log the creation
                     $logModel = $this->model('Log');
-                    $logModel::write('INFO', "Trip created via API for {$destination['name']}", [
+                    $destinationName = $destination['name'] ?? 'unknown';
+                    $logModel::write('INFO', "Trip created via API for {$destinationName}", [
                         'user_id' => $_SESSION['user_id'],
                         'trip_id' => $tripId,
                         'destination_id' => $destinationId,

@@ -138,10 +138,9 @@ class Log extends Model
      */    public static function write($level, $message, $data = [], $component = null)
     {
         $log = new self();
-        
-        // Truncate component to fit database column (assuming 50 chars max)
+          // Truncate component to fit database column (assuming 50 chars max)
         if ($component && strlen($component) > 50) {
-            $component = substr($component, 0, 47) . '...';
+            $component = substr($component ?? '', 0, 47) . '...';
         }
         
         return $log->create([

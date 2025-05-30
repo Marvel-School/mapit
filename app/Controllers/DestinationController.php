@@ -352,26 +352,24 @@ class DestinationController extends Controller
         
         // Handle image deletion if requested
         $deleteImage = isset($_POST['delete_image']) && $_POST['delete_image'] == '1';
-        
-        // Handle image upload if provided
-        $imagePath = $destination['image']; // Keep existing image by default
-        
-        if ($deleteImage) {
+          // Handle image upload if provided
+        $imagePath = isset($destination['image']) ? $destination['image'] : null; // Keep existing image by default
+          if ($deleteImage) {
             // Delete current image if it exists
-            if ($destination['image'] && file_exists($destination['image'])) {
-                unlink($destination['image']);
+            if (isset($destination['image']) && !empty($destination['image']) && file_exists($destination['image'])) {
+                $imageFile = $destination['image'];
+                unlink($imageFile);
             }
             $imagePath = null; // Clear image path
         }
           if (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
             try {
                 $fileUpload = new FileUpload();
-                $newImagePath = $fileUpload->uploadImage($_FILES['image'], 'destinations');
-                
-                if ($newImagePath) {
+                $newImagePath = $fileUpload->uploadImage($_FILES['image'], 'destinations');                  if ($newImagePath) {
                     // Delete old image if it exists and we're not just replacing due to delete checkbox
-                    if (!$deleteImage && $destination['image'] && file_exists($destination['image'])) {
-                        unlink($destination['image']);
+                    if (!$deleteImage && isset($destination['image']) && !empty($destination['image']) && file_exists($destination['image'])) {
+                        $oldImageFile = $destination['image'];
+                        unlink($oldImageFile);
                     }
                     $imagePath = $newImagePath;
                 } else {
@@ -496,33 +494,33 @@ class DestinationController extends Controller
             $_SESSION['error'] = 'Failed to delete destination';
             $this->redirect('/destinations/' . $id);
             return;
-        }
-        
-        // Delete associated image file if it exists
-        if ($destination['image'] && file_exists($destination['image'])) {
+        }        // Delete associated image file if it exists (check if image column exists and has value)
+        if (isset($destination['image']) && !empty($destination['image']) && file_exists($destination['image'])) {
             try {
-                unlink($destination['image']);
+                $imageFile = $destination['image'];
+                unlink($imageFile);
                 
                 // Log successful image deletion
                 $logModel = $this->model('Log');
-                $logModel::write('INFO', "Destination image deleted: {$destination['image']}", [
+                $logModel::write('INFO', "Destination image deleted: {$imageFile}", [
                     'user_id' => $_SESSION['user_id'],
                     'destination_id' => $id
                 ], 'FileUpload');
             } catch (\Exception $e) {
                 // Log image deletion failure
                 $logModel = $this->model('Log');
-                $logModel::write('WARNING', "Failed to delete destination image: {$destination['image']}", [
+                $imageFile = $destination['image'] ?? 'unknown';
+                $logModel::write('WARNING', "Failed to delete destination image: {$imageFile}", [
                     'user_id' => $_SESSION['user_id'],
                     'destination_id' => $id,
                     'error' => $e->getMessage()
                 ], 'FileUpload');
             }
         }
-        
-        // Log the deletion
+          // Log the deletion
         $logModel = $this->model('Log');
-        $logModel::write('INFO', "Destination deleted: {$destination['name']}", [
+        $destinationName = $destination['name'] ?? 'unknown';
+        $logModel::write('INFO', "Destination deleted: {$destinationName}", [
             'user_id' => $_SESSION['user_id'],
             'destination_id' => $id
         ], 'Destination');

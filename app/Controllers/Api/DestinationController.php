@@ -12,7 +12,17 @@ class DestinationController extends Controller
      * Constructor - Require authentication for all API endpoints
      */
     public function __construct()
-    {        try {
+    {        
+        try {
+            // Start output buffering to capture any unwanted output
+            if (!ob_get_level()) {
+                ob_start();
+            }
+            
+            // Temporarily disable error display for API responses
+            ini_set('display_errors', 0);
+            ini_set('display_startup_errors', 0);
+            
             // Set secure JSON response headers
             header('Content-Type: application/json; charset=utf-8');
             header('X-Content-Type-Options: nosniff');
@@ -26,7 +36,7 @@ class DestinationController extends Controller
             
             // Check authentication for API endpoints
             if (!$this->isLoggedIn()) {
-                $this->json([
+                $this->cleanJsonResponse([
                     'success' => false,
                     'message' => 'Authentication required',
                     'error_code' => 'AUTH_REQUIRED'
@@ -36,7 +46,7 @@ class DestinationController extends Controller
             
             // Check rate limiting
             if (!$this->checkRateLimit('api_destination', 60, 300)) { // 60 requests per 5 minutes
-                $this->json([
+                $this->cleanJsonResponse([
                     'success' => false,
                     'message' => 'Rate limit exceeded. Please try again later.',
                     'error_code' => 'RATE_LIMIT_EXCEEDED'
@@ -46,7 +56,7 @@ class DestinationController extends Controller
             
         } catch (\Exception $e) {
             error_log("API Destination Controller initialization error: " . $e->getMessage());
-            $this->json([
+            $this->cleanJsonResponse([
                 'success' => false,
                 'message' => 'Internal server error',
                 'error_code' => 'INITIALIZATION_ERROR'
@@ -54,32 +64,60 @@ class DestinationController extends Controller
             exit();
         }
     }
-      /**
+    
+    /**
+     * Send clean JSON response by discarding any previous output
+     * 
+     * @param array $data
+     * @param int $statusCode
+     * @return void
+     */
+    protected function cleanJsonResponse(array $data, int $statusCode = 200)
+    {
+        // Clean any previous output
+        while (ob_get_level()) {
+            ob_end_clean();
+        }
+        
+        // Set proper HTTP status code
+        http_response_code($statusCode);
+        
+        // Ensure we have the correct content type
+        header('Content-Type: application/json; charset=utf-8');
+        
+        // Output the JSON response
+        echo json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        
+        // Flush and exit cleanly
+        if (ob_get_level()) {
+            ob_end_flush();
+        }
+        
+        exit();
+    }
+    
+    /**
      * Get destinations for the authenticated user
      * 
      * @return void
      */
     public function index()
     {
-        try {
-            // Additional rate limiting for data retrieval
+        try {            // Additional rate limiting for data retrieval
             if (!$this->checkRateLimit('api_destination_index', 30, 300)) { // 30 requests per 5 minutes
-                $this->json([
+                $this->cleanJsonResponse([
                     'success' => false,
                     'message' => 'Rate limit exceeded for data retrieval',
                     'error_code' => 'RATE_LIMIT_EXCEEDED'
                 ], 429);
-                return;
             }
             
             $userId = $this->validateNumeric($_SESSION['user_id']);
-            if ($userId === false) {
-                $this->json([
+            if ($userId === false) {                $this->cleanJsonResponse([
                     'success' => false,
                     'message' => 'Invalid user session',
                     'error_code' => 'INVALID_SESSION'
                 ], 400);
-                return;
             }
             
             $destinationModel = $this->model('Destination');
@@ -108,7 +146,7 @@ class DestinationController extends Controller
                 'count' => count($sanitizedDestinations)
             ], 'API');
             
-            $this->json([
+            $this->cleanJsonResponse([
                 'success' => true,
                 'data' => $sanitizedDestinations,
                 'count' => count($sanitizedDestinations)
@@ -116,7 +154,7 @@ class DestinationController extends Controller
             
         } catch (\Exception $e) {
             error_log("API destination index error: " . $e->getMessage());
-            $this->json([
+            $this->cleanJsonResponse([
                 'success' => false,
                 'message' => 'Failed to retrieve destinations',
                 'error_code' => 'RETRIEVAL_ERROR'
@@ -135,24 +173,24 @@ class DestinationController extends Controller
             // Validate and sanitize destination ID
             $destinationId = $this->validateNumeric($id, 1);
             if ($destinationId === false) {
-                $this->json([
+                $this->cleanJsonResponse([
                     'success' => false,
                     'message' => 'Invalid destination ID',
                     'error_code' => 'INVALID_ID'
                 ], 400);
-                return;
+
             }
             
             $destinationModel = $this->model('Destination');
             $destination = $destinationModel->find($destinationId);
             
             if (!$destination) {
-                $this->json([
+                $this->cleanJsonResponse([
                     'success' => false,
                     'message' => 'Destination not found',
                     'error_code' => 'NOT_FOUND'
                 ], 404);
-                return;
+
             }
             
             // Check if user has permission to view
@@ -165,12 +203,12 @@ class DestinationController extends Controller
                     'ip' => $_SERVER['REMOTE_ADDR'] ?? 'unknown'
                 ], 'Security');
                 
-                $this->json([
+                $this->cleanJsonResponse([
                     'success' => false,
                     'message' => 'Access denied',
                     'error_code' => 'ACCESS_DENIED'
                 ], 403);
-                return;
+
             }
             
             // Sanitize output data
@@ -187,14 +225,14 @@ class DestinationController extends Controller
                 'created_at' => $destination['created_at']
             ];
             
-            $this->json([
+            $this->cleanJsonResponse([
                 'success' => true,
                 'data' => $sanitizedDestination
             ]);
             
         } catch (\Exception $e) {
             error_log("API destination show error: " . $e->getMessage());
-            $this->json([
+            $this->cleanJsonResponse([
                 'success' => false,
                 'message' => 'Failed to retrieve destination',
                 'error_code' => 'RETRIEVAL_ERROR'
@@ -211,33 +249,33 @@ class DestinationController extends Controller
         try {
             // Enhanced rate limiting for creation operations
             if (!$this->checkRateLimit('api_destination_create', 10, 300)) { // 10 creates per 5 minutes
-                $this->json([
+                $this->cleanJsonResponse([
                     'success' => false,
                     'message' => 'Rate limit exceeded for destination creation',
                     'error_code' => 'RATE_LIMIT_EXCEEDED'
                 ], 429);
-                return;
+
             }
             
             // Validate JSON input
             $rawInput = file_get_contents('php://input');
             if (empty($rawInput)) {
-                $this->json([
+                $this->cleanJsonResponse([
                     'success' => false,
                     'message' => 'No input data provided',
                     'error_code' => 'NO_INPUT'
                 ], 400);
-                return;
+
             }
             
             $input = json_decode($rawInput, true);
             if (json_last_error() !== JSON_ERROR_NONE) {
-                $this->json([
+                $this->cleanJsonResponse([
                     'success' => false,
                     'message' => 'Invalid JSON input: ' . json_last_error_msg(),
                     'error_code' => 'INVALID_JSON'
                 ], 400);
-                return;
+
             }
             
             // Sanitize and validate input data
@@ -293,13 +331,13 @@ class DestinationController extends Controller
             }
             
             if (!empty($errors)) {
-                $this->json([
+                $this->cleanJsonResponse([
                     'success' => false,
                     'message' => 'Validation failed',
                     'errors' => $errors,
                     'error_code' => 'VALIDATION_ERROR'
                 ], 422);
-                return;
+
             }
             
             // Create destination
@@ -332,12 +370,12 @@ class DestinationController extends Controller
                     'data' => $destinationData
                 ], 'API');
                 
-                $this->json([
+                $this->cleanJsonResponse([
                     'success' => false,
                     'message' => 'Failed to create destination',
                     'error_code' => 'CREATION_ERROR'
                 ], 500);
-                return;
+
             }
             
             // Get the created destination
@@ -351,7 +389,7 @@ class DestinationController extends Controller
                 'privacy' => $privacy
             ], 'API');
             
-            $this->json([
+            $this->cleanJsonResponse([
                 'success' => true,
                 'message' => 'Destination created successfully' . 
                     (($privacy === 'public') ? '. It will be visible after approval.' : '.'),
@@ -367,7 +405,7 @@ class DestinationController extends Controller
             
         } catch (\Exception $e) {
             error_log("API destination store error: " . $e->getMessage());
-            $this->json([
+            $this->cleanJsonResponse([
                 'success' => false,
                 'message' => 'Internal server error during destination creation',
                 'error_code' => 'INTERNAL_ERROR'
@@ -385,35 +423,35 @@ class DestinationController extends Controller
         try {
             // Enhanced rate limiting for update operations
             if (!$this->checkRateLimit('api_destination_update', 20, 300)) { // 20 updates per 5 minutes
-                $this->json([
+                $this->cleanJsonResponse([
                     'success' => false,
                     'message' => 'Rate limit exceeded for destination updates',
                     'error_code' => 'RATE_LIMIT_EXCEEDED'
                 ], 429);
-                return;
+
             }
             
             // Validate destination ID
             $destinationId = $this->validateNumeric($id, 1);
             if ($destinationId === false) {
-                $this->json([
+                $this->cleanJsonResponse([
                     'success' => false,
                     'message' => 'Invalid destination ID',
                     'error_code' => 'INVALID_ID'
                 ], 400);
-                return;
+
             }
             
             $destinationModel = $this->model('Destination');
             $destination = $destinationModel->find($destinationId);
             
             if (!$destination) {
-                $this->json([
+                $this->cleanJsonResponse([
                     'success' => false,
                     'message' => 'Destination not found',
                     'error_code' => 'NOT_FOUND'
                 ], 404);
-                return;
+
             }
             
             // Check if user has permission to edit
@@ -426,47 +464,83 @@ class DestinationController extends Controller
                     'ip' => $_SERVER['REMOTE_ADDR'] ?? 'unknown'
                 ], 'Security');
                 
-                $this->json([
+                $this->cleanJsonResponse([
                     'success' => false,
                     'message' => 'Access denied',
                     'error_code' => 'ACCESS_DENIED'
                 ], 403);
-                return;
+
             }
             
             // Validate JSON input
             $rawInput = file_get_contents('php://input');
             if (empty($rawInput)) {
-                $this->json([
+                $this->cleanJsonResponse([
                     'success' => false,
                     'message' => 'No update data provided',
                     'error_code' => 'NO_INPUT'
                 ], 400);
-                return;
+
             }
             
             $input = json_decode($rawInput, true);
             if (json_last_error() !== JSON_ERROR_NONE) {
-                $this->json([
+                $this->cleanJsonResponse([
                     'success' => false,
                     'message' => 'Invalid JSON input: ' . json_last_error_msg(),
                     'error_code' => 'INVALID_JSON'
                 ], 400);
-                return;
+
             }
             
             // Prepare update data with validation
             $updateData = [];
             $errors = [];
-            
-            // Update visited status (common use case for API)
+              // Handle visited status update through trips table
+            $visitedStatusChanged = false;
             if (isset($input['visited'])) {
                 $visited = (int)$input['visited'];
                 if ($visited !== 0 && $visited !== 1) {
                     $errors['visited'] = 'Visited status must be 0 or 1';
                 } else {
-                    $updateData['visited'] = $visited;
-                    $updateData['visit_date'] = $visited ? date('Y-m-d') : null;
+                    // Handle trip status update
+                    $tripModel = $this->model('Trip');
+                    $existingTrip = $tripModel->findUserDestinationTrip($_SESSION['user_id'], $destinationId);
+                    
+                    if ($visited === 1) {
+                        // Mark as visited
+                        if ($existingTrip) {
+                            $tripUpdated = $tripModel->updateStatus($existingTrip['id'], 'visited');
+                        } else {
+                            // Create new trip with visited status
+                            $tripData = [
+                                'user_id' => $_SESSION['user_id'],
+                                'destination_id' => $destinationId,
+                                'status' => 'visited',
+                                'type' => 'adventure' // Default type
+                            ];
+                            $tripUpdated = $tripModel->create($tripData);
+                        }
+                        
+                        if (!$tripUpdated) {
+                            $errors['visited'] = 'Failed to update trip status';
+                        } else {
+                            $visitedStatusChanged = true;
+                        }
+                    } else {
+                        // Mark as not visited (remove from trips or set to planned)
+                        if ($existingTrip) {
+                            if ($existingTrip['status'] === 'visited') {
+                                $tripUpdated = $tripModel->updateStatus($existingTrip['id'], 'planned');
+                                if (!$tripUpdated) {
+                                    $errors['visited'] = 'Failed to update trip status';
+                                } else {
+                                    $visitedStatusChanged = true;
+                                }
+                            }
+                        }
+                        // If no trip exists, no action needed for "not visited"
+                    }
                 }
             }
             
@@ -503,42 +577,58 @@ class DestinationController extends Controller
             }
             
             if (!empty($errors)) {
-                $this->json([
+                $this->cleanJsonResponse([
                     'success' => false,
                     'message' => 'Validation failed',
                     'errors' => $errors,
                     'error_code' => 'VALIDATION_ERROR'
                 ], 422);
-                return;
+
             }
-            
-            if (empty($updateData)) {
-                $this->json([
+              if (empty($updateData) && !$visitedStatusChanged) {
+                $this->cleanJsonResponse([
                     'success' => false,
                     'message' => 'No valid update data provided',
                     'error_code' => 'NO_UPDATE_DATA'
                 ], 400);
-                return;
             }
             
-            $updated = $destinationModel->update($destinationId, $updateData);
+            // Update destination fields if any
+            $destinationUpdated = true;
+            if (!empty($updateData)) {
+                $destinationUpdated = $destinationModel->update($destinationId, $updateData);
+            }
             
-            if ($updated) {
+            if ($destinationUpdated) {
                 // Log successful update
                 $logModel = $this->model('Log');
+                $logFields = array_keys($updateData);
+                if ($visitedStatusChanged) {
+                    $logFields[] = 'visited_status';
+                }
+                
                 $logModel::write('INFO', "Destination updated via API", [
                     'user_id' => $_SESSION['user_id'],
                     'destination_id' => $destinationId,
-                    'updated_fields' => array_keys($updateData)
+                    'updated_fields' => $logFields
                 ], 'API');
                 
-                $this->json([
+                $response = [
                     'success' => true,
-                    'message' => 'Destination updated successfully',
-                    'updated_fields' => array_keys($updateData)
-                ]);
+                    'message' => 'Destination updated successfully'
+                ];
+                
+                if (!empty($updateData)) {
+                    $response['updated_fields'] = array_keys($updateData);
+                }
+                
+                if ($visitedStatusChanged) {
+                    $response['visited_status_updated'] = true;
+                }
+                
+                $this->cleanJsonResponse($response);
             } else {
-                $this->json([
+                $this->cleanJsonResponse([
                     'success' => false,
                     'message' => 'Failed to update destination',
                     'error_code' => 'UPDATE_ERROR'
@@ -547,7 +637,7 @@ class DestinationController extends Controller
             
         } catch (\Exception $e) {
             error_log("API destination update error: " . $e->getMessage());
-            $this->json([
+            $this->cleanJsonResponse([
                 'success' => false,
                 'message' => 'Internal server error during destination update',
                 'error_code' => 'INTERNAL_ERROR'
@@ -565,35 +655,35 @@ class DestinationController extends Controller
         try {
             // Enhanced rate limiting for delete operations
             if (!$this->checkRateLimit('api_destination_delete', 5, 300)) { // 5 deletes per 5 minutes
-                $this->json([
+                $this->cleanJsonResponse([
                     'success' => false,
                     'message' => 'Rate limit exceeded for destination deletion',
                     'error_code' => 'RATE_LIMIT_EXCEEDED'
                 ], 429);
-                return;
+
             }
             
             // Validate destination ID
             $destinationId = $this->validateNumeric($id, 1);
             if ($destinationId === false) {
-                $this->json([
+                $this->cleanJsonResponse([
                     'success' => false,
                     'message' => 'Invalid destination ID',
                     'error_code' => 'INVALID_ID'
                 ], 400);
-                return;
+
             }
             
             $destinationModel = $this->model('Destination');
             $destination = $destinationModel->find($destinationId);
             
             if (!$destination) {
-                $this->json([
+                $this->cleanJsonResponse([
                     'success' => false,
                     'message' => 'Destination not found',
                     'error_code' => 'NOT_FOUND'
                 ], 404);
-                return;
+
             }
             
             // Check if user has permission to delete
@@ -606,22 +696,22 @@ class DestinationController extends Controller
                     'ip' => $_SERVER['REMOTE_ADDR'] ?? 'unknown'
                 ], 'Security');
                 
-                $this->json([
+                $this->cleanJsonResponse([
                     'success' => false,
                     'message' => 'Access denied',
                     'error_code' => 'ACCESS_DENIED'
                 ], 403);
-                return;
+
             }
             
             // Prevent deletion of featured destinations by non-admin users
             if ($destination['featured'] == 1 && !$this->hasRole('admin')) {
-                $this->json([
+                $this->cleanJsonResponse([
                     'success' => false,
                     'message' => 'Featured destinations cannot be deleted. Please contact an administrator if you need assistance.',
                     'error_code' => 'FEATURED_PROTECTED'
                 ], 403);
-                return;
+
             }
             
             // Store destination data for logging before deletion
@@ -638,12 +728,12 @@ class DestinationController extends Controller
                     'destination_name' => $destinationName
                 ], 'API');
                 
-                $this->json([
+                $this->cleanJsonResponse([
                     'success' => true,
                     'message' => 'Destination deleted successfully'
                 ]);
             } else {
-                $this->json([
+                $this->cleanJsonResponse([
                     'success' => false,
                     'message' => 'Failed to delete destination',
                     'error_code' => 'DELETION_ERROR'
@@ -652,7 +742,7 @@ class DestinationController extends Controller
             
         } catch (\Exception $e) {
             error_log("API destination delete error: " . $e->getMessage());
-            $this->json([
+            $this->cleanJsonResponse([
                 'success' => false,
                 'message' => 'Internal server error during destination deletion',
                 'error_code' => 'INTERNAL_ERROR'
@@ -666,36 +756,34 @@ class DestinationController extends Controller
      */
     public function quickCreate()
     {
-        try {
-            // Enhanced rate limiting for quick creation
+        try {            // Enhanced rate limiting for quick creation
             if (!$this->checkRateLimit('api_destination_quick_create', 5, 300)) { // 5 quick creates per 5 minutes
-                $this->json([
+                $this->cleanJsonResponse([
                     'success' => false,
                     'message' => 'Rate limit exceeded for quick destination creation',
                     'error_code' => 'RATE_LIMIT_EXCEEDED'
                 ], 429);
-                return;
             }
             
             // Validate JSON input
             $rawInput = file_get_contents('php://input');
             if (empty($rawInput)) {
-                $this->json([
+                $this->cleanJsonResponse([
                     'success' => false,
                     'message' => 'No input data provided',
                     'error_code' => 'NO_INPUT'
                 ], 400);
-                return;
+
             }
             
             $input = json_decode($rawInput, true);
             if (json_last_error() !== JSON_ERROR_NONE) {
-                $this->json([
+                $this->cleanJsonResponse([
                     'success' => false,
                     'message' => 'Invalid JSON input: ' . json_last_error_msg(),
                     'error_code' => 'INVALID_JSON'
                 ], 400);
-                return;
+
             }
             
             // Sanitize and validate input data
@@ -746,15 +834,13 @@ class DestinationController extends Controller
             if (!in_array($privacy, ['public', 'private'])) {
                 $errors['privacy'] = 'Privacy must be public or private';
             }
-            
-            if (!empty($errors)) {
-                $this->json([
+              if (!empty($errors)) {
+                $this->cleanJsonResponse([
                     'success' => false,
                     'message' => 'Validation failed',
                     'errors' => $errors,
                     'error_code' => 'VALIDATION_ERROR'
                 ], 422);
-                return;
             }
             
             // Create destination with user-provided data
@@ -783,12 +869,12 @@ class DestinationController extends Controller
                     'data' => $destinationData
                 ], 'API');
                 
-                $this->json([
+                $this->cleanJsonResponse([
                     'success' => false,
                     'message' => 'Failed to create destination',
                     'error_code' => 'CREATION_ERROR'
                 ], 500);
-                return;
+
             }
             
             // Get the created destination
@@ -825,23 +911,22 @@ class DestinationController extends Controller
                 'visited' => $visited,
                 'privacy' => $privacy
             ], 'API');
-            
-            $this->json([
+              $this->cleanJsonResponse([
                 'success' => true,
                 'message' => 'Location added! You can edit the details by clicking on it.',
                 'data' => [
-                    'id' => (int)$destination['id'],
-                    'name' => $this->sanitizeInput($destination['name']),
-                    'latitude' => (float)$destination['latitude'],
-                    'longitude' => (float)$destination['longitude'],
-                    'privacy' => $destination['privacy'],
-                    'visited' => (int)$destination['visited']
+                    'id' => (int)($destination['id'] ?? 0),
+                    'name' => $this->sanitizeInput($destination['name'] ?? ''),
+                    'latitude' => (float)($destination['latitude'] ?? 0),
+                    'longitude' => (float)($destination['longitude'] ?? 0),
+                    'privacy' => $destination['privacy'] ?? 'private',
+                    'visited' => (int)($destination['visited'] ?? 0)
                 ]
             ], 201);
             
         } catch (\Exception $e) {
             error_log("API quick destination create error: " . $e->getMessage());
-            $this->json([
+            $this->cleanJsonResponse([
                 'success' => false,
                 'message' => 'Internal server error during quick destination creation',
                 'error_code' => 'INTERNAL_ERROR'

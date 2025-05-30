@@ -55,7 +55,7 @@
                                     <div class="d-flex align-items-center">
                                         <div class="avatar-sm me-2">
                                             <div class="avatar-initial rounded-circle bg-primary">
-                                                <?= strtoupper(substr($user['username'], 0, 1)); ?>
+                                                <?= strtoupper(substr($user['username'] ?? '', 0, 1)); ?>
                                             </div>
                                         </div>
                                         <?= htmlspecialchars($user['username']); ?>
@@ -114,10 +114,10 @@
             <div class="modal-body">
                 <p>Are you sure you want to delete user <strong id="deleteUsername"></strong>?</p>
                 <p class="text-danger">This action cannot be undone.</p>
-            </div>
-            <div class="modal-footer">
+            </div>            <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                 <form id="deleteForm" method="POST" style="display: inline;">
+                    <?= \App\Core\View::csrfField(); ?>
                     <button type="submit" class="btn btn-danger">Delete User</button>
                 </form>
             </div>

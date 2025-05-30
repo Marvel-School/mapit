@@ -93,7 +93,7 @@
                                 <i class="fas fa-map-marker-alt me-1"></i>
                                 <?= htmlspecialchars($destination['city'] . ', ' . $destination['country']); ?>
                             </p>
-                            <p class="card-text"><?= htmlspecialchars(substr($destination['description'], 0, 100) . '...'); ?></p>
+                            <p class="card-text"><?= htmlspecialchars(substr($destination['description'] ?? '', 0, 100) . '...'); ?></p>
                             <a href="/destinations/<?= $destination['id']; ?>" class="btn btn-outline-primary">View Details</a>
                         </div>
                     </div>

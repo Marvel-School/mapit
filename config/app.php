@@ -6,7 +6,7 @@ return [
     'env' => 'development', // 'production', 'development'
     'url' => 'http://localhost',
     'timezone' => 'UTC',
-    'display_errors' => true,    // Database configuration
+    'display_errors' => false,    // Database configuration
     'database' => [
         'host' => $_ENV['DB_HOST'] ?? 'mysql',
         'dbname' => $_ENV['DB_DATABASE'] ?? 'mapit',

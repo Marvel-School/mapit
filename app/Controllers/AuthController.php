@@ -74,11 +74,13 @@ class AuthController extends Controller
                 ]);
                 return;
             }
-            
-            // Set session variables
+              // Set session variables
             $_SESSION['user_id'] = $user['id'];
             $_SESSION['username'] = $user['username'];
             $_SESSION['user_role'] = $user['role'];
+            
+            // Update last login timestamp
+            $userModel->updateLastLogin($user['id']);
             
             // If remember me is checked, set a cookie
             if ($remember) {
@@ -94,10 +96,10 @@ class AuthController extends Controller
                     'expires' => date('Y-m-d H:i:s', $expires)
                 ], 'Authentication');
             }
-            
-            // Log the login
+              // Log the login
             $logModel = $this->model('Log');
-            $logModel::write('INFO', "User login: {$user['username']}", [
+            $username = $user['username'] ?? 'unknown';
+            $logModel::write('INFO', "User login: {$username}", [
                 'user_id' => $user['id']
             ], 'Authentication');
             
@@ -242,11 +244,11 @@ class AuthController extends Controller
      * @return void
      */
     public function logout()
-    {
-        // If user is logged in, log the logout
+    {        // If user is logged in, log the logout
         if ($this->isLoggedIn()) {
             $logModel = $this->model('Log');
-            $logModel::write('INFO', "User logout: {$_SESSION['username']}", [
+            $username = $_SESSION['username'] ?? 'unknown';
+            $logModel::write('INFO', "User logout: {$username}", [
                 'user_id' => $_SESSION['user_id']
             ], 'Authentication');
         }
@@ -480,9 +482,8 @@ class AuthController extends Controller
         if (preg_match('/[<>"\'\\\]/', $email)) {
             $errors[] = 'Email contains invalid characters';
         }
-        
-        // Basic domain validation
-        $domain = substr(strrchr($email, "@"), 1);
+          // Basic domain validation
+        $domain = substr(strrchr($email ?? '', "@") ?: '', 1);
         if ($domain && !checkdnsrr($domain, "MX")) {
             $errors[] = 'Email domain does not exist';
         }

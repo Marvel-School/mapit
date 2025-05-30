@@ -3,26 +3,24 @@
 namespace App\Core;
 
 class Request
-{
-    /**
+{    /**
      * Get the request URI
      * 
      * @return string
      */
     public static function uri()
     {
-        $uri = trim(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH), '/');
+        $requestUri = $_SERVER['REQUEST_URI'] ?? '/';
+        $uri = trim(parse_url($requestUri, PHP_URL_PATH), '/');
         return $uri ?: 'home';
-    }
-
-    /**
+    }    /**
      * Get the request method
      * 
      * @return string
      */
     public static function method()
     {
-        return $_SERVER['REQUEST_METHOD'];
+        return $_SERVER['REQUEST_METHOD'] ?? 'GET';
     }
 
     /**
@@ -44,10 +42,8 @@ class Request
             // Handle form data
             foreach ($_POST as $key => $value) {
                 $data[$key] = self::sanitize($value);
-            }
-
-            // Handle JSON request
-            $contentType = isset($_SERVER['CONTENT_TYPE']) ? $_SERVER['CONTENT_TYPE'] : '';
+            }            // Handle JSON request
+            $contentType = $_SERVER['CONTENT_TYPE'] ?? '';
             
             if (strpos($contentType, 'application/json') !== false) {
                 $json = file_get_contents('php://input');
@@ -152,9 +148,7 @@ class Request
     {
         $file = self::file($key);
         return $file && $file['error'] != UPLOAD_ERR_NO_FILE;
-    }
-
-    /**
+    }    /**
      * Check if request is AJAX
      * 
      * @return boolean

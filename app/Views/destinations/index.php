@@ -107,9 +107,8 @@
                                                         Visited on: <?= date('M d, Y', strtotime($destination['visit_date'])); ?>
                                                     </p>
                                                 <?php endif; ?>
-                                                
-                                                <p class="card-text">
-                                                    <?= htmlspecialchars(substr($destination['description'], 0, 100) . '...'); ?>
+                                                  <p class="card-text">
+                                                    <?= htmlspecialchars(substr($destination['description'] ?? '', 0, 100) . '...'); ?>
                                                 </p>
                                                 
                                                 <div class="d-flex justify-content-between">
@@ -228,10 +227,10 @@
             <div class="modal-body">
                 <p>Are you sure you want to delete <span id="destinationName"></span>?</p>
                 <p class="text-danger">This action cannot be undone.</p>
-            </div>
-            <div class="modal-footer">
+            </div>            <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                 <form id="deleteForm" method="POST">
+                    <?= \App\Core\View::csrfField(); ?>
                     <button type="submit" class="btn btn-danger">Delete</button>
                 </form>
             </div>
@@ -346,6 +345,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Function to update destination status
 function updateStatus(id, visited) {
+    // Show loading state
+    const statusText = visited ? 'visited' : 'planned';
+    console.log(`Updating destination ${id} status to: ${statusText}`);
+    
     fetch(`/api/destinations/${id}`, {
         method: 'PUT',
         headers: {
@@ -353,16 +356,29 @@ function updateStatus(id, visited) {
         },
         body: JSON.stringify({ visited: visited })
     })
-    .then(response => response.json())
+    .then(response => {
+        console.log('API Response status:', response.status);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
     .then(data => {
+        console.log('API Response data:', data);
         if (data.success) {
+            // Show success message briefly before reload
+            const message = data.message || `Destination marked as ${statusText}`;
+            console.log('Success:', message);
             window.location.reload();
         } else {
-            alert('Failed to update destination status');
+            const errorMsg = data.message || 'Failed to update destination status';
+            console.error('API Error:', errorMsg);
+            alert('Failed to update destination status: ' + errorMsg);
         }
     })
     .catch(error => {
-        alert('An error occurred while updating the destination status');
+        console.error('Request Error:', error);
+        alert('An error occurred while updating the destination status: ' + error.message);
     });
 }
 

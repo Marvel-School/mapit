@@ -145,7 +145,7 @@ $title = 'Edit Destination - Admin';
             <div class="card-body">
                 <div class="d-flex align-items-center">
                     <div class="avatar-circle me-3">
-                        <?= strtoupper(substr($creator['username'], 0, 2)); ?>
+                        <?= strtoupper(substr($creator['username'] ?? '', 0, 2)); ?>
                     </div>
                     <div>
                         <h6 class="mb-1"><?= htmlspecialchars($creator['username']); ?></h6>

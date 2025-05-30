@@ -7,7 +7,7 @@ use App\Core\Model;
 class Destination extends Model
 {
     protected $table = 'destinations';    protected $fillable = [
-        'name', 'description', 'country', 'city', 'latitude', 'longitude', 
+        'name', 'description', 'image', 'country', 'city', 'latitude', 'longitude', 
         'privacy', 'user_id', 'featured', 'notes', 'approval_status'
     ];
       /**

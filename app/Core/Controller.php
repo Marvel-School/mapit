@@ -121,29 +121,40 @@ class Controller
         }
         
         return $_SESSION['user_role'] == $roles;
-    }
-    
-    /**
+    }    /**
      * Require authentication to access a page
      * 
      * @return void
      */
     public function requireLogin()
     {
-        // Initialize secure session
-        self::initializeSecureSession();
+        // Session is already configured and started in App.php
+        // Just ensure we have a session (should already be active)
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        
+        // Regenerate session ID periodically for security
+        if (!isset($_SESSION['last_regeneration'])) {
+            $_SESSION['last_regeneration'] = time();
+        } elseif (time() - $_SESSION['last_regeneration'] > 300) { // 5 minutes
+            session_regenerate_id(true);
+            $_SESSION['last_regeneration'] = time();
+        }
+        
+        // Validate session integrity
+        self::validateSessionIntegrity();
         
         if (!isset($_SESSION['user_id']) || !isset($_SESSION['username'])) {
             $_SESSION['redirect_after_login'] = $_SERVER['REQUEST_URI'] ?? '/';
             $this->redirect('/login');
             exit();
         }
-        
-        // Additional security check - verify user still exists and is active
+          // Additional security check - verify user still exists
         $userModel = $this->model('User');
         $user = $userModel->find($_SESSION['user_id']);
         
-        if (!$user || $user['status'] !== 'active') {
+        if (!$user) {
             session_destroy();
             session_start();
             $this->redirect('/login');
@@ -239,8 +250,7 @@ class Controller
      * 
      * @param string $redirect
      * @return void
-     */
-    public function validateCSRF($redirect = null)
+     */    public function validateCSRF($redirect = null)
     {
         $token = $_POST['csrf_token'] ?? '';
         
@@ -349,43 +359,7 @@ class Controller
         $_SESSION['rate_limits'][$key][] = $now;
         
         return true;
-    }
-
-    /**
-     * Initialize secure session configuration
-     * 
-     * @return void
-     */
-    public static function initializeSecureSession()
-    {
-        // Configure session security settings
-        ini_set('session.cookie_httponly', 1);
-        ini_set('session.cookie_secure', isset($_SERVER['HTTPS']) ? 1 : 0);
-        ini_set('session.cookie_samesite', 'Strict');
-        ini_set('session.use_strict_mode', 1);
-        ini_set('session.cookie_lifetime', 0); // Session cookies only
-        
-        // Set session name
-        session_name('MAPIT_SESSION');
-        
-        // Start session if not already started
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
-        
-        // Regenerate session ID periodically for security
-        if (!isset($_SESSION['last_regeneration'])) {
-            $_SESSION['last_regeneration'] = time();
-        } elseif (time() - $_SESSION['last_regeneration'] > 300) { // 5 minutes
-            session_regenerate_id(true);
-            $_SESSION['last_regeneration'] = time();
-        }
-        
-        // Validate session integrity
-        self::validateSessionIntegrity();
-    }
-    
-    /**
+    }    /**
      * Validate session integrity and detect hijacking
      * 
      * @return void

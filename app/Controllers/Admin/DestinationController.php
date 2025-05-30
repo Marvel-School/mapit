@@ -6,8 +6,7 @@ use App\Core\Controller;
 use App\Core\Database;
 
 class DestinationController extends Controller
-{
-    /**
+{    /**
      * Constructor - Require admin or moderator role
      */
     public function __construct()
@@ -290,13 +289,152 @@ class DestinationController extends Controller
             'destination_id' => $id,
             'old_status' => $destination['approval_status'],
             'new_status' => $newStatus
-        ], 'Admin');
-
-        $this->json([
+        ], 'Admin');        $this->json([
             'success' => true, 
             'message' => "Destination {$newStatus} successfully",
             'status' => $newStatus
         ]);
+    }
+
+    /**
+     * Show edit form for a destination
+     * 
+     * @param int $id
+     * @return void
+     */    public function edit($id)
+    {
+        // Get destination
+        $destinationModel = $this->model('Destination');
+        $destination = $destinationModel->find($id);
+        
+        if (!$destination) {
+            $_SESSION['error'] = 'Destination not found';
+            $this->redirect('/admin/destinations');
+            return;
+        }
+          // Get creator
+        $userModel = $this->model('User');
+        $creator = null;
+        if ($destination['user_id']) {
+            $creator = $userModel->find($destination['user_id']);
+        }
+        
+        // Debug logging
+        $logModel = $this->model('Log');
+        $logModel::write('DEBUG', "Admin edit view data", [
+            'destination_id' => $id,
+            'destination_exists' => !empty($destination),
+            'destination_name' => $destination['name'] ?? 'N/A',
+            'creator_exists' => !empty($creator),
+            'session_user' => $_SESSION['user_id'] ?? 'none',
+            'session_role' => $_SESSION['role'] ?? 'none'
+        ], 'Admin');        $this->view('admin/destinations/edit', [
+            'title' => 'Edit Destination',
+            'destination' => $destination,
+            'creator' => $creator
+        ]);
+    }
+
+    /**
+     * Update a destination
+     * 
+     * @param int $id
+     * @return void
+     */    public function update($id)
+    {
+        // Debug logging
+        $logModel = $this->model('Log');
+        $logModel::write('INFO', "Admin destination update called for ID: {$id}", [
+            'post_data' => $_POST,
+            'user_id' => $_SESSION['user_id'] ?? 'none'
+        ], 'Admin');
+        
+        // Get destination
+        $destinationModel = $this->model('Destination');
+        $destination = $destinationModel->find($id);
+        
+        if (!$destination) {
+            $_SESSION['error'] = 'Destination not found';
+            $this->redirect('/admin/destinations');
+            return;
+        }
+        
+        // Validate input
+        $errors = [];
+        
+        if (empty($_POST['name'])) {
+            $errors[] = 'Name is required';
+        }
+        
+        if (empty($_POST['country'])) {
+            $errors[] = 'Country is required';
+        }
+        
+        if (empty($_POST['latitude']) || empty($_POST['longitude'])) {
+            $errors[] = 'Latitude and longitude are required';
+        }
+        
+        if (!is_numeric($_POST['latitude']) || !is_numeric($_POST['longitude'])) {
+            $errors[] = 'Latitude and longitude must be valid numbers';
+        }
+        
+        if (!in_array($_POST['privacy'], ['public', 'private'])) {
+            $errors[] = 'Invalid privacy setting';
+        }
+        
+        if (!in_array($_POST['approval_status'], ['pending', 'approved', 'rejected'])) {
+            $errors[] = 'Invalid approval status';
+        }
+        
+        if (!empty($errors)) {
+            $_SESSION['error'] = implode('<br>', $errors);
+            $this->redirect('/admin/destinations/' . $id . '/edit');
+            return;
+        }
+        
+        // Prepare update data
+        $updateData = [
+            'name' => trim($_POST['name']),
+            'description' => trim($_POST['description'] ?? ''),
+            'country' => trim($_POST['country']),
+            'city' => trim($_POST['city'] ?? ''),
+            'latitude' => (float)$_POST['latitude'],
+            'longitude' => (float)$_POST['longitude'],
+            'privacy' => $_POST['privacy'],
+            'approval_status' => $_POST['approval_status'],
+            'featured' => isset($_POST['featured']) ? 1 : 0,
+            'notes' => trim($_POST['notes'] ?? '')
+        ];
+        
+        // Track what changed for logging
+        $changes = [];
+        foreach ($updateData as $field => $newValue) {
+            if ($destination[$field] != $newValue) {
+                $changes[] = "{$field}: '{$destination[$field]}' → '{$newValue}'";
+            }
+        }
+        
+        // Update destination
+        $updated = $destinationModel->update($id, $updateData);
+        
+        if (!$updated) {
+            $_SESSION['error'] = 'Failed to update destination';
+            $this->redirect('/admin/destinations/' . $id . '/edit');
+            return;
+        }
+        
+        // Log the update
+        if (!empty($changes)) {
+            $logModel = $this->model('Log');
+            $logModel::write('INFO', "Destination updated: {$destination['name']}", [
+                'admin_id' => $_SESSION['user_id'],
+                'destination_id' => $id,
+                'changes' => $changes
+            ], 'Admin');
+        }
+        
+        $_SESSION['success'] = 'Destination updated successfully';
+        $this->redirect('/admin/destinations/' . $id);
     }
 
     /**

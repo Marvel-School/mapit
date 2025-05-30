@@ -12,16 +12,17 @@ class DestinationController extends Controller
      * Constructor - Require authentication for all API endpoints
      */
     public function __construct()
-    {
-        try {
+    {        try {
             // Set secure JSON response headers
             header('Content-Type: application/json; charset=utf-8');
             header('X-Content-Type-Options: nosniff');
             header('X-Frame-Options: DENY');
             header('X-XSS-Protection: 1; mode=block');
             
-            // Initialize secure session
-            $this->initializeSecureSession();
+            // Session is already configured and started in App.php
+            if (session_status() === PHP_SESSION_NONE) {
+                session_start();
+            }
             
             // Check authentication for API endpoints
             if (!$this->isLoggedIn()) {

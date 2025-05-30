@@ -86,12 +86,15 @@ $this->post('admin/users/{id}/delete', 'Admin\UserController', 'delete');
 
 $this->get('admin/destinations', 'Admin\DestinationController', 'index');
 $this->get('admin/destinations/{id}', 'Admin\DestinationController', 'show');
+$this->get('admin/destinations/{id}/edit', 'Admin\DestinationController', 'edit');
+$this->post('admin/destinations/{id}', 'Admin\DestinationController', 'update');
 $this->post('admin/destinations/{id}/approve', 'Admin\DestinationController', 'approve');
 $this->post('admin/destinations/{id}/reject', 'Admin\DestinationController', 'reject');
 $this->post('admin/destinations/{id}/status', 'Admin\DestinationController', 'status');
 $this->delete('admin/destinations/{id}', 'Admin\DestinationController', 'delete');
 
 $this->get('admin/logs', 'Admin\LogController', 'index');
+$this->get('admin/logs/{id}/data', 'Admin\LogController', 'data');
 $this->post('admin/logs/clear', 'Admin\LogController', 'clear');
 $this->delete('admin/logs/{id}', 'Admin\LogController', 'delete');
 

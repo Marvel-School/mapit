@@ -5,6 +5,8 @@ services:
       context: ./docker/php
       dockerfile: Dockerfile
     container_name: mapit_php
+    environment:
+      TZ: Europe/Amsterdam
     volumes:
       - .:/var/www/html
       - ./docker/php/php.ini:/usr/local/etc/php/php.ini
@@ -33,7 +35,6 @@ services:
     depends_on:
       - php
     restart: unless-stopped
-
   # MySQL Database
   mysql:
     image: mysql:8.0
@@ -44,6 +45,7 @@ services:
       MYSQL_USER: mapit_user
       MYSQL_PASSWORD: mapit_password
       MYSQL_ALLOW_EMPTY_PASSWORD: "no"
+      TZ: Europe/Amsterdam
     ports:
       - "3306:3306"
     volumes:

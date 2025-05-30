@@ -206,7 +206,11 @@
 
 <script>
 function showLogData(logId) {
-    fetch(`/admin/logs/${logId}/data`)
+    fetch(`/admin/logs/${logId}/data`, {
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
         .then(response => response.json())
         .then(data => {
             if (data.success) {

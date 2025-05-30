@@ -40,10 +40,20 @@
                                            name="avatar"
                                            accept="image/jpeg,image/png,image/gif,image/webp"
                                            data-max-size="5242880"
-                                           data-upload-type="avatars">
-                                    <div class="form-text">
+                                           data-upload-type="avatars"
+                                           style="display: none;">
+                                    <input type="hidden" id="avatar_resized" name="avatar_resized">
+                                    
+                                    <div class="d-grid">
+                                        <button type="button" id="select-avatar-btn" class="btn btn-outline-primary">
+                                            <i class="fas fa-camera me-2"></i>Select Profile Picture
+                                        </button>
+                                    </div>
+                                    
+                                    <div class="form-text mt-2">
                                         <small class="text-muted">
-                                            Allowed: JPG, PNG, GIF, WebP. Max size: 5MB. Max dimensions: 800x800px.
+                                            Allowed: JPG, PNG, GIF, WebP. Max size: 5MB.
+                                            <br>Images will be automatically resized to 800x800px.
                                             <br>EXIF data will be automatically removed for privacy.
                                         </small>
                                     </div>
@@ -199,14 +209,72 @@
 </style>
 
 <script src="/js/secure-upload.js"></script>
+<script src="/js/image-resizer.js"></script>
 <script>
     // Initialize secure upload for profile avatar
     document.addEventListener('DOMContentLoaded', function() {
         const avatarUpload = document.getElementById('avatar');
+        const selectAvatarBtn = document.getElementById('select-avatar-btn');
+        const avatarResizedInput = document.getElementById('avatar_resized');
+        const profileImage = document.querySelector('.profile-image img');
+        
+        // Initialize image resizer
+        const imageResizer = new ImageResizer({
+            targetWidth: 800,
+            targetHeight: 800,
+            outputFormat: 'jpeg',
+            outputQuality: 0.9,
+            onResize: function(resizedFile, resizedDataUrl) {
+                // Update hidden input with resized file data
+                avatarResizedInput.value = resizedDataUrl;
+                
+                // Update the profile image preview
+                if (profileImage) {
+                    profileImage.src = resizedDataUrl;
+                }
+                
+                // Show success feedback
+                const feedback = document.getElementById('avatar-upload-feedback');
+                if (feedback) {
+                    feedback.className = 'upload-feedback success';
+                    feedback.innerHTML = '<i class="fas fa-check-circle"></i> Profile picture resized and ready for upload (800x800px)';
+                }
+            },
+            onError: function(error) {
+                // Show error feedback
+                const feedback = document.getElementById('avatar-upload-feedback');
+                if (feedback) {
+                    feedback.className = 'upload-feedback error';
+                    feedback.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${error}`;
+                }
+            }
+        });
+        
+        // Handle select avatar button click
+        if (selectAvatarBtn) {
+            selectAvatarBtn.addEventListener('click', function() {
+                avatarUpload.click();
+            });
+        }
+        
         if (avatarUpload) {
-            // Add event listeners for real-time validation
+            // Add event listeners for file selection
             avatarUpload.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (!file) {
+                    return;
+                }
+                
+                // First, validate the file using existing secure upload validation
                 validateFileUpload(e.target, 'avatar-upload-feedback');
+                
+                // If validation passes, open the resizer
+                setTimeout(() => {
+                    const feedback = document.getElementById('avatar-upload-feedback');
+                    if (feedback && !feedback.classList.contains('error')) {
+                        imageResizer.openModal(file);
+                    }
+                }, 100);
             });
             
             // Prevent paste events on file inputs for security
@@ -214,6 +282,26 @@
                 e.preventDefault();
                 showUploadError('avatar-upload-feedback', 'Paste operations are not allowed for security reasons. Please use the file browser.');
             });
+        }
+        
+        // Clear resized data when form is reset
+        const form = document.querySelector('form');
+        if (form) {
+            form.addEventListener('reset', function() {
+                if (avatarResizedInput) {
+                    avatarResizedInput.value = '';
+                }
+                
+                // Reset profile image to original
+                if (profileImage && profileImage.dataset.originalSrc) {
+                    profileImage.src = profileImage.dataset.originalSrc;
+                }
+            });
+        }
+        
+        // Store original profile image src for reset functionality
+        if (profileImage && !profileImage.dataset.originalSrc) {
+            profileImage.dataset.originalSrc = profileImage.src;
         }
     });
 </script>

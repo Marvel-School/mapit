@@ -6,8 +6,7 @@ use App\Core\Controller;
 use Exception;
 
 class TripController extends Controller
-{
-    /**
+{    /**
      * Create or update a trip with comprehensive security and validation
      * 
      * @return void
@@ -15,8 +14,11 @@ class TripController extends Controller
     public function store()
     {
         try {
-            // Initialize secure session
-            self::initializeSecureSession();
+            // Session is already configured and started in App.php
+            // Just ensure we have a session (should already be active)
+            if (session_status() === PHP_SESSION_NONE) {
+                session_start();
+            }
             
             // Check authentication
             if (!isset($_SESSION['user_id'])) {
@@ -154,8 +156,7 @@ class TripController extends Controller
             $this->jsonError('An error occurred while processing your request', 500);
         }
     }
-    
-    /**
+      /**
      * Delete a trip with security validation
      * 
      * @return void
@@ -163,8 +164,10 @@ class TripController extends Controller
     public function delete()
     {
         try {
-            // Initialize secure session
-            self::initializeSecureSession();
+            // Session is already configured and started in App.php
+            if (session_status() === PHP_SESSION_NONE) {
+                session_start();
+            }
             
             // Check authentication
             if (!isset($_SESSION['user_id'])) {
@@ -235,8 +238,7 @@ class TripController extends Controller
             $this->jsonError('An error occurred while processing your request', 500);
         }
     }
-    
-    /**
+      /**
      * Get user trips with filtering and pagination
      * 
      * @return void
@@ -244,8 +246,10 @@ class TripController extends Controller
     public function index()
     {
         try {
-            // Initialize secure session
-            self::initializeSecureSession();
+            // Session is already configured and started in App.php
+            if (session_status() === PHP_SESSION_NONE) {
+                session_start();
+            }
             
             // Check authentication
             if (!isset($_SESSION['user_id'])) {

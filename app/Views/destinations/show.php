@@ -199,10 +199,10 @@
             <div class="modal-body">
                 <p>Are you sure you want to delete <strong><?= htmlspecialchars($destination['name']); ?></strong>?</p>
                 <p class="text-danger">This action cannot be undone.</p>
-            </div>
-            <div class="modal-footer">
+            </div>            <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                 <form action="/destinations/<?= $destination['id']; ?>/delete" method="POST">
+                    <?= \App\Core\View::csrfField(); ?>
                     <button type="submit" class="btn btn-danger">Delete</button>
                 </form>
             </div>
@@ -287,10 +287,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     url: '<?= ($trip && $trip['status'] === 'visited') ? '/images/markers/visited_enhanced.svg' : '/images/markers/wishlist_enhanced.svg'; ?>',
                     scaledSize: new google.maps.Size(32, 32)
                 }
-            });
-        }
+            });        }
         
-        // Add info window        const infoWindow = new google.maps.InfoWindow({
+        // Add info window
+        const infoWindow = new google.maps.InfoWindow({
             content: `                <div class="info-window">
                     <h5><?= addslashes(htmlspecialchars($destination['name'])); ?></h5>
                     <p><?= addslashes(htmlspecialchars($destination['city'] . ', ' . $destination['country'])); ?></p>
@@ -298,9 +298,9 @@ document.addEventListener('DOMContentLoaded', function() {
                         <p><small>Visited on: <?= date('M d, Y', strtotime($trip['updated_at'])); ?></small></p>
                     <?php endif; ?>
                 </div>
-            `
-        });
-          // Add click listener based on marker type
+            `        });
+        
+        // Add click listener based on marker type
         if (google.maps.marker && google.maps.marker.AdvancedMarkerElement &&
             marker instanceof google.maps.marker.AdvancedMarkerElement) {
             marker.addEventListener('click', () => {
@@ -311,15 +311,16 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         } else {
             marker.addListener('click', () => {
-                infoWindow.open(map, marker);
-            });
-        }        
+                infoWindow.open(map, marker);            });
+        }
+        
         // Show nearby destinations if available
         <?php if (!empty($nearbyDestinations)): ?>
             <?php foreach ($nearbyDestinations as $nearby): ?>
                 // Create nearby marker with AdvancedMarkerElement or fallback
                 let nearbyMarker<?= $nearby['id']; ?>;
-                try {                    if (google.maps.marker && google.maps.marker.AdvancedMarkerElement) {
+                try {
+                    if (google.maps.marker && google.maps.marker.AdvancedMarkerElement) {
                         const nearbyIconElement<?= $nearby['id']; ?> = document.createElement('img');
                         nearbyIconElement<?= $nearby['id']; ?>.src = '/images/markers/wishlist_enhanced.svg';
                         nearbyIconElement<?= $nearby['id']; ?>.style.width = '24px';
@@ -333,10 +334,10 @@ document.addEventListener('DOMContentLoaded', function() {
                             map: map,
                             title: '<?= addslashes(htmlspecialchars($nearby['name'])); ?>',
                             content: nearbyIconElement<?= $nearby['id']; ?>
-                        });
-                    } else {
+                        });                    } else {
                         throw new Error('AdvancedMarkerElement not available');
-                    }                } catch (error) {
+                    }
+                } catch (error) {
                     nearbyMarker<?= $nearby['id']; ?> = new google.maps.Marker({
                         position: { 
                             lat: <?= $nearby['latitude']; ?>, 
@@ -373,15 +374,17 @@ document.addEventListener('DOMContentLoaded', function() {
                     });
                 } else {
                     nearbyMarker<?= $nearby['id']; ?>.addListener('click', () => {
-                        nearbyInfo<?= $nearby['id']; ?>.open(map, nearbyMarker<?= $nearby['id']; ?>);
-                    });
-                }            <?php endforeach; ?>
+                        nearbyInfo<?= $nearby['id']; ?>.open(map, nearbyMarker<?= $nearby['id']; ?>);                    });
+                }
+            <?php endforeach; ?>
         <?php endif; ?>
     }
 });
 
 // Function to update trip status
 function updateTripStatus(destinationId, status) {
+    console.log('updateTripStatus called with:', destinationId, status);
+    
     fetch(`/api/trips`, {
         method: 'POST',
         headers: {
@@ -389,20 +392,27 @@ function updateTripStatus(destinationId, status) {
         },
         body: JSON.stringify({ 
             destination_id: destinationId, 
-            status: status 
+            status: status,
+            type: 'adventure' // Default type required by API
         })
     })
-    .then(response => response.json())
+    .then(response => {
+        console.log('Response status:', response.status);
+        console.log('Response headers:', response.headers);
+        return response.json();
+    })
     .then(data => {
+        console.log('Response data:', data);
         if (data.success) {
             window.location.reload();
         } else {
-            alert('Failed to update trip status');
+            console.error('API returned failure:', data);
+            alert('Failed to update trip status: ' + (data.message || 'Unknown error'));
         }
     })
     .catch(error => {
         console.error('Error updating trip status:', error);
-        alert('An error occurred while updating the trip status');
+        alert('An error occurred while updating the trip status: ' + error.message);
     });
 }
 

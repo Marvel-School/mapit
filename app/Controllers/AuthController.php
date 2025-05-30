@@ -29,8 +29,7 @@ class AuthController extends Controller
      * Process login form
      * 
      * @return void
-     */
-    public function processLogin()
+     */    public function processLogin()
     {
         try {
             // Validate CSRF token
@@ -145,8 +144,7 @@ class AuthController extends Controller
      * Process registration form
      * 
      * @return void
-     */
-    public function processRegister()
+     */    public function processRegister()
     {
         try {
             // Check rate limiting
@@ -167,59 +165,75 @@ class AuthController extends Controller
             $password = $_POST['password'] ?? '';
             $passwordConfirm = $_POST['password_confirm'] ?? '';
         
-        // Validate form data
-        $validator = new Validator($_POST);
-        $validator->validate([
-            'username' => 'required|min:3|max:50|unique:users',
-            'email' => 'required|email|unique:users',
-            'password' => 'required|min:8',
-            'password_confirm' => 'required|match:password'
-        ]);
-        
-        $errors = $validator->errors();
-        
-        if (!empty($errors)) {
-            $this->view('auth/register', [
-                'title' => 'Register',
-                'errors' => $errors,
-                'username' => $username,
-                'email' => $email
+            // Validate form data
+            $validator = new Validator($_POST);
+            $validator->validate([
+                'username' => 'required|min:3|max:50|unique:users',
+                'email' => 'required|email|unique:users',
+                'password' => 'required|min:8',
+                'password_confirm' => 'required|match:password'
             ]);
-            return;
-        }
-        
-        // Register user
-        $userModel = $this->model('User');
-        $userId = $userModel->register([
-            'username' => $username,
-            'email' => $email,
-            'password' => $password,
-            'role' => 'user'
-        ]);
-        
-        if (!$userId) {
-            $errors['register'] = 'Failed to register user';
+            
+            $errors = $validator->errors();
+            
+            if (!empty($errors)) {
+                $this->view('auth/register', [
+                    'title' => 'Register',
+                    'errors' => $errors,
+                    'username' => $username,
+                    'email' => $email
+                ]);
+                return;
+            }
+            
+            // Register user
+            $userModel = $this->model('User');
+            $userId = $userModel->register([
+                'username' => $username,
+                'email' => $email,
+                'password' => $password,
+                'role' => 'user'
+            ]);
+            
+            if (!$userId) {
+                $errors['register'] = 'Failed to register user';
+                
+                $this->view('auth/register', [
+                    'title' => 'Register',
+                    'errors' => $errors,
+                    'username' => $username,
+                    'email' => $email
+                ]);
+                return;
+            }
+            
+            // Log the registration
+            $logModel = $this->model('Log');
+            $logModel::write('INFO', "User registered: {$username}", [
+                'user_id' => $userId
+            ], 'Authentication');
+              // Set success message
+            $_SESSION['success'] = 'Registration successful! You can now log in.';
+            
+            // Redirect to login
+            $this->redirect('/login');
+            
+        } catch (\Exception $e) {
+            // Log the error
+            $logModel = $this->model('Log');
+            $logModel::write('ERROR', 'Registration error: ' . $e->getMessage(), [
+                'username' => $username ?? '',
+                'email' => $email ?? '',
+                'trace' => $e->getTraceAsString()
+            ], 'Authentication');
             
             $this->view('auth/register', [
                 'title' => 'Register',
-                'errors' => $errors,
-                'username' => $username,
-                'email' => $email
+                'errors' => ['register' => 'An error occurred during registration. Please try again.'],
+                'username' => $username ?? '',
+                'email' => $email ?? ''
             ]);
-            return;
         }
-        
-        // Log the registration
-        $logModel = $this->model('Log');
-        $logModel::write('INFO', "User registered: {$username}", [
-            'user_id' => $userId
-        ], 'Authentication');
-        
-        // Set success message
-        $_SESSION['success'] = 'Registration successful! You can now log in.';
-        
-        // Redirect to login
-        $this->redirect('/login');
     }
     
     /**

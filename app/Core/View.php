@@ -101,8 +101,7 @@ class View
      * 
      * @param string $token
      * @return bool
-     */
-    public static function verifyCSRF($token)
+     */    public static function verifyCSRF($token)
     {
         if (session_status() === PHP_SESSION_NONE) {
             session_start();
@@ -117,14 +116,11 @@ class View
             unset($_SESSION['csrf_token'], $_SESSION['csrf_time']);
             return false;
         }
-        
-        // Verify token using timing-safe comparison
+          // Verify token using timing-safe comparison
         $isValid = hash_equals($_SESSION['csrf_token'], $token);
         
-        if ($isValid) {
-            // Regenerate token after successful verification for additional security
-            self::generateCSRF();
-        }
+        // Don't regenerate token immediately to allow for proper form processing
+        // Token will be regenerated on next request
         
         return $isValid;
     }
@@ -208,16 +204,22 @@ class View
             }
         }
     }
-    
-    /**
+      /**
      * Create CSRF token
      * 
      * @return string
      */
     public static function csrf()
     {
-        if (!isset($_SESSION['csrf_token'])) {
-            $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        
+        if (!isset($_SESSION['csrf_token']) || !isset($_SESSION['csrf_time'])) {
+            // Generate token with additional entropy
+            $token = bin2hex(random_bytes(32)) . '_' . time() . '_' . bin2hex(random_bytes(16));
+            $_SESSION['csrf_token'] = $token;
+            $_SESSION['csrf_time'] = time();
         }
         
         return $_SESSION['csrf_token'];

@@ -158,5 +158,54 @@ class LogController extends Controller
         } catch (\Exception $e) {
             $this->json(['success' => false, 'message' => 'Error deleting log: ' . $e->getMessage()], 500);
         }
+    }    /**
+     * Get detailed log data for viewing
+     * 
+     * @param int $id
+     * @return void
+     */
+    public function data($id)
+    {
+        // Ensure this is an AJAX request
+        if (!\App\Core\Request::isAjax()) {
+            $this->json(['success' => false, 'message' => 'Invalid request'], 400);
+            return;
+        }
+
+        try {
+            $logModel = $this->model('Log');
+            
+            // Get the log entry
+            $log = $logModel->find($id);
+            if (!$log) {
+                $this->json(['success' => false, 'message' => 'Log entry not found'], 404);
+                return;
+            }
+
+            // Prepare the detailed data
+            $logData = [
+                'id' => $log['id'],
+                'level' => $log['level'],
+                'message' => $log['message'],
+                'component' => $log['component'],
+                'data' => $log['data'],
+                'url' => $log['url'],
+                'created_at' => $log['created_at'],
+                'formatted_timestamp' => date('Y-m-d H:i:s', strtotime($log['created_at']))
+            ];
+
+            // If data is JSON, decode it for better display
+            if (!empty($log['data'])) {
+                $decodedData = json_decode($log['data'], true);
+                if (json_last_error() === JSON_ERROR_NONE) {
+                    $logData['data_decoded'] = $decodedData;
+                }
+            }
+
+            $this->json(['success' => true, 'data' => $logData]);
+            
+        } catch (\Exception $e) {
+            $this->json(['success' => false, 'message' => 'Error retrieving log data: ' . $e->getMessage()], 500);
+        }
     }
 }

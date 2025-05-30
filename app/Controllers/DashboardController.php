@@ -137,10 +137,65 @@ class DashboardController extends Controller
             
             // Validate form data
             $errors = [];
-            
-            // Handle avatar upload securely with error handling
+              // Handle avatar upload securely with error handling
             $avatarFilename = null;
-            if (isset($_FILES['avatar']) && $_FILES['avatar']['error'] !== UPLOAD_ERR_NO_FILE) {
+            
+            // Check for resized image data first (from image resizer)
+            $avatarResized = $_POST['avatar_resized'] ?? '';
+            if (!empty($avatarResized)) {
+                try {
+                    // Validate the data URL format
+                    if (preg_match('/^data:image\/(jpeg|jpg|png|gif|webp);base64,(.+)$/i', $avatarResized, $matches)) {
+                        $imageType = strtolower($matches[1]);
+                        $imageData = base64_decode($matches[2]);
+                        
+                        if ($imageData !== false) {
+                            // Generate secure filename
+                            $filename = 'avatar_' . $userId . '_' . time() . '.jpg'; // Always save as JPEG
+                            $uploadPath = 'public/images/avatars/' . $filename;
+                            
+                            // Ensure directory exists
+                            $dirPath = dirname($uploadPath);
+                            if (!is_dir($dirPath)) {
+                                mkdir($dirPath, 0755, true);
+                            }
+                            
+                            // Save the resized image
+                            if (file_put_contents($uploadPath, $imageData)) {
+                                $avatarFilename = $filename;
+                                
+                                // Delete old avatar if exists
+                                if (!empty($user['avatar'])) {
+                                    $oldAvatarPath = 'public/images/avatars/' . $user['avatar'];
+                                    if (file_exists($oldAvatarPath)) {
+                                        unlink($oldAvatarPath);
+                                    }
+                                }
+                                
+                                // Log successful resized image upload
+                                $logModel = $this->model('Log');
+                                $logModel::write('INFO', "Resized avatar uploaded for user: {$username}", [
+                                    'user_id' => $userId,
+                                    'filename' => $filename,
+                                    'size' => strlen($imageData),
+                                    'type' => 'resized_avatar'
+                                ], 'FileUpload');
+                            } else {
+                                $errors['avatar'] = 'Failed to save resized image';
+                            }
+                        } else {
+                            $errors['avatar'] = 'Invalid image data format';
+                        }
+                    } else {
+                        $errors['avatar'] = 'Invalid resized image format';
+                    }
+                } catch (\Exception $e) {
+                    $errors['avatar'] = 'Resized image processing failed: ' . $e->getMessage();
+                    error_log("Resized avatar error: " . $e->getMessage());
+                }
+            }
+            // Fallback to traditional file upload if no resized data and file is uploaded
+            elseif (isset($_FILES['avatar']) && $_FILES['avatar']['error'] !== UPLOAD_ERR_NO_FILE) {
                 try {
                     $fileUpload = new FileUpload();
                     $avatarFilename = $fileUpload->uploadImage($_FILES['avatar'], 'avatars', $userId);
@@ -148,11 +203,11 @@ class DashboardController extends Controller
                     if (!$avatarFilename) {
                         $errors = array_merge($errors, $fileUpload->getErrors());
                     } else {
-                        // Delete old avatar if exists (explicit file cleanup)
+                        // Delete old avatar if exists
                         if (!empty($user['avatar'])) {
                             $oldAvatarPath = 'public/images/avatars/' . $user['avatar'];
                             if (file_exists($oldAvatarPath)) {
-                                unlink($oldAvatarPath); // Explicit file cleanup
+                                unlink($oldAvatarPath);
                             }
                             // Also use FileUpload method for secure deletion
                             $fileUpload->deleteFile($user['avatar'], 'avatars', $userId);

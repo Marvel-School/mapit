@@ -21,11 +21,13 @@ class App
      * Initialize the application
      * 
      * @return void
-     */
-    public function init()
+     */    public function init()
     {
         // Load environment variables first
         $this->loadEnvironment();
+        
+        // Configure session security settings BEFORE starting session
+        $this->configureSessionSecurity();
         
         // Start session
         if (!session_id()) {
@@ -85,6 +87,27 @@ class App
                 }
             }
         }
+    }
+    
+    /**
+     * Configure session security settings before starting session
+     * 
+     * @return void
+     */
+    protected function configureSessionSecurity()
+    {
+        // Configure session security settings (must be done before session_start)
+        ini_set('session.cookie_httponly', 1);
+        ini_set('session.cookie_secure', isset($_SERVER['HTTPS']) ? 1 : 0);
+        ini_set('session.cookie_samesite', 'Strict');
+        ini_set('session.use_strict_mode', 1);
+        ini_set('session.cookie_lifetime', 0); // Session cookies only
+        ini_set('session.gc_maxlifetime', 3600); // 1 hour
+        ini_set('session.sid_length', 48); // Longer session IDs
+        ini_set('session.sid_bits_per_character', 6); // More entropy
+        
+        // Set session name
+        session_name('MAPIT_SESSION');
     }
     
     /**

@@ -49,6 +49,29 @@ comprehensive-*.php
 docker-auto-login.php
 clear-*.php
 
+# Additional test patterns to prevent future clutter
+*test*.php
+*test*.html
+*test*.js
+*test*.ps1
+*debug*.php
+*debug*.html
+*debug*.js
+*diagnose*.php
+*diagnostic*.php
+temp_*.php
+screenshot_*.php
+create_test_*.php
+ultra_clean.*
+*-test.*
+*_test.*
+api_*_debug.*
+session_*_test.*
+csrf-*-test.*
+login_*_test.*
+profile-*-test.*
+avatar-*-test.*
+
 # Documentation generated during development
 *_COMPLETE.md
 *_FIX_COMPLETE.md
@@ -61,3 +84,4 @@ TRIP_STATUS_BADGES_COMPLETE.md
 # Cleanup scripts
 cleanup_*.ps1
 cleanup_*.sh
+simple_cleanup.ps1

@@ -5,6 +5,9 @@
 !.vscode/launch.json
 !.vscode/extensions.json
 *.code-workspace
+.vscode-upload.json
+.vscode/file-monitor.log
+.vscode/prevent-file-recreation.ps1
 
 # Local History for Visual Studio Code
 .history/

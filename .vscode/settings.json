@@ -1,4 +1,5 @@
 {
+    // AGGRESSIVE VS Code session and restoration prevention
     "files.hotExit": "off", 
     "workbench.editor.restoreViewState": false,
     "workbench.editor.enablePreview": false,
@@ -19,7 +20,14 @@
     "workbench.editor.limit.enabled": true,
     "workbench.editor.limit.value": 10,
     "workbench.editor.limit.perEditorGroup": true,
-      // Prevent file recreation and auto-generation
+    "workbench.enableExperiments": false,
+    "workbench.settings.enableNaturalLanguageSearch": false,
+    "extensions.ignoreRecommendations": true,
+    "extensions.showRecommendationsOnlyOnDemand": true,
+    "workbench.localHistory.enabled": false,
+    "timeline.excludeSources": ["*"],
+    
+    // Prevent file recreation and auto-generation
     "php.suggest.basic": false,
     "emmet.showExpandedAbbreviation": "never",
     "emmet.showSuggestionsAsSnippets": false,
@@ -27,7 +35,7 @@
         "*.php": "php"
     },
     
-    // Disable all auto-generation features that might recreate files
+    // Disable IntelliSense file generation and caching
     "intelephense.files.exclude": [
         "**/test-*.php",
         "**/debug-*.php", 
@@ -35,7 +43,11 @@
         "**/*verification*.php",
         "**/scripts/*.php",
         "**/*test*.php",
-        "**/*debug*.php"
+        "**/*debug*.php",
+        "**/*check*.php",
+        "**/*diagnose*.php",
+        "**/*complete*.php",
+        "**/*clean*.php"
     ],
     "intelephense.environment.includePaths": [],
     "intelephense.diagnostics.undefinedMethods": false,
@@ -105,7 +117,22 @@
         "**/csrf-*-test.*": true,
         "**/login_*_test.*": true,
         "**/profile-*-test.*": true,
-        "**/avatar-*-test.*": true
+        "**/avatar-*-test.*": true,
+        "**/*check*.php": true,
+        "**/*clean*.php": true,
+        "**/*complete*.php": true,
+        "**/*aggressive*.php": true,
+        "**/*analyze*.php": true,
+        "**/*api_*.php": true,
+        "**/*final_*.php": true,
+        "**/*csrf_integration*.php": true,
+        "**/*add_last_login*.php": true,
+        "**/*update_avatar*.php": true,
+        "**/*COMPLETE*.md": true,
+        "**/*SUCCESS*.md": true,
+        "**/*FIX*.md": true,
+        "**/test*.html": true,
+        "**/debug*.html": true
     },
     
     "search.exclude": {
@@ -132,7 +159,19 @@
         "**/*test*.php": true,
         "**/*debug*.php": true,
         "**/*diagnose*.php": true,
-        "**/*diagnostic*.php": true
+        "**/*diagnostic*.php": true,
+        "**/*check*.php": true,
+        "**/*clean*.php": true,
+        "**/*complete*.php": true,
+        "**/*aggressive*.php": true,
+        "**/*analyze*.php": true,
+        "**/*api_*.php": true,
+        "**/*final_*.php": true,
+        "**/*COMPLETE*.md": true,
+        "**/*SUCCESS*.md": true,
+        "**/*FIX*.md": true,
+        "**/test*.html": true,
+        "**/debug*.html": true
     },
     
     "files.watcherExclude": {
@@ -171,6 +210,18 @@
         "**/csrf-*-test.*": true,
         "**/login_*_test.*": true,
         "**/profile-*-test.*": true,
-        "**/avatar-*-test.*": true
+        "**/avatar-*-test.*": true,
+        "**/*check*.php": true,
+        "**/*clean*.php": true,
+        "**/*complete*.php": true,
+        "**/*aggressive*.php": true,
+        "**/*analyze*.php": true,
+        "**/*api_*.php": true,
+        "**/*final_*.php": true,
+        "**/*COMPLETE*.md": true,
+        "**/*SUCCESS*.md": true,
+        "**/*FIX*.md": true,
+        "**/test*.html": true,
+        "**/debug*.html": true
     }
 }

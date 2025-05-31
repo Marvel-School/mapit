@@ -396,7 +396,7 @@ class DestinationController extends Controller
         if ($deleteImage) {
             // Delete current image if it exists
             if (isset($destination['image']) && !empty($destination['image'])) {
-                $fullImagePath = __DIR__ . '/../../public/images/destinations/' . $destination['image'];
+                $fullImagePath = __DIR__ . '/../../../public/images/destinations/' . $destination['image'];
                 if (file_exists($fullImagePath)) {
                     unlink($fullImagePath);
                     
@@ -420,10 +420,9 @@ class DestinationController extends Controller
                     $imageType = strtolower($matches[1]);
                     $imageData = base64_decode($matches[2]);
                     
-                    if ($imageData !== false) {
-                        // Generate secure filename
+                    if ($imageData !== false) {                        // Generate secure filename
                         $filename = 'destination_admin_' . time() . '.jpg'; // Always save as JPEG
-                        $uploadPath = __DIR__ . '/../../public/images/destinations/' . $filename;
+                        $uploadPath = __DIR__ . '/../../../public/images/destinations/' . $filename;
                         
                         // Ensure directory exists
                         $dirPath = dirname($uploadPath);
@@ -435,7 +434,7 @@ class DestinationController extends Controller
                         if (file_put_contents($uploadPath, $imageData)) {
                             // Delete old image if it exists and we're not just replacing due to delete checkbox
                             if (!$deleteImage && isset($destination['image']) && !empty($destination['image'])) {
-                                $oldImagePath = __DIR__ . '/../../public/images/destinations/' . $destination['image'];
+                                $oldImagePath = __DIR__ . '/../../../public/images/destinations/' . $destination['image'];
                                 if (file_exists($oldImagePath)) {
                                     unlink($oldImagePath);
                                 }
@@ -467,14 +466,14 @@ class DestinationController extends Controller
         // Fallback to traditional file upload if no resized data and file is uploaded
         elseif (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
             try {
-                $smartUpload = new SmartFileUpload(__DIR__ . '/../../public/images/destinations/');
+                $smartUpload = new SmartFileUpload(__DIR__ . '/../../../public/images/destinations/');
                 $smartUpload->setSecurityLevel('strict'); // Stricter security for admin uploads
                 $newImagePath = $smartUpload->uploadImageSimple($_FILES['image'], 'destination_admin_' . time());
                 
                 if ($newImagePath) {
                     // Delete old image if it exists and we're not just replacing due to delete checkbox
                     if (!$deleteImage && isset($destination['image']) && !empty($destination['image'])) {
-                        $oldImagePath = __DIR__ . '/../../public/images/destinations/' . $destination['image'];
+                        $oldImagePath = __DIR__ . '/../../../public/images/destinations/' . $destination['image'];
                         if (file_exists($oldImagePath)) {
                             unlink($oldImagePath);
                         }
@@ -526,12 +525,12 @@ class DestinationController extends Controller
             'notes' => trim($_POST['notes'] ?? ''),
             'image' => $imagePath
         ];
-        
-        // Track what changed for logging
+          // Track what changed for logging
         $changes = [];
         foreach ($updateData as $field => $newValue) {
-            if ($destination[$field] != $newValue) {
-                $changes[] = "{$field}: '{$destination[$field]}' → '{$newValue}'";
+            $oldValue = $destination[$field] ?? '';
+            if ($oldValue != $newValue) {
+                $changes[] = "{$field}: '{$oldValue}' → '{$newValue}'";
             }
         }
         

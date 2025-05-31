@@ -143,14 +143,13 @@ class BadgeController extends Controller
                 'percentage' => min(100, round(($current / $badge['threshold']) * 100))
             ];
         }
-        
-        // Get users who have this badge (for inspiration)
+          // Get users who have this badge (for inspiration)
         $db->query("
-            SELECT u.username, ub.earned_at
+            SELECT u.username, ub.earned_date
             FROM user_badges ub
             JOIN users u ON ub.user_id = u.id
             WHERE ub.badge_id = :badge_id
-            ORDER BY ub.earned_at DESC
+            ORDER BY ub.earned_date DESC
             LIMIT 10
         ");
         $db->bind(':badge_id', $id);

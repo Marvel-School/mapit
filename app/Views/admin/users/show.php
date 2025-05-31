@@ -144,11 +144,10 @@
                                         <div class="d-flex align-items-center">
                                             <div class="me-3">
                                                 <i class="fas fa-medal fa-2x text-warning"></i>
-                                            </div>
-                                            <div>
+                                            </div>                                            <div>
                                                 <h6 class="mb-0"><?= htmlspecialchars($badge['name']); ?></h6>
                                                 <small class="text-muted">
-                                                    Earned: <?= date('M j, Y', strtotime($badge['earned_at'])); ?>
+                                                    Earned: <?= date('M j, Y', strtotime($badge['earned_date'])); ?>
                                                 </small>
                                             </div>
                                         </div>

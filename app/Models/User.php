@@ -237,8 +237,7 @@ class User extends Model
      * @param array $badge
      * @param int $userId
      * @return int
-     */
-    private function calculateProgressForBadge($badge, $userId)
+     */    public function calculateProgressForBadge($badge, $userId)
     {
         $current = 0;
         

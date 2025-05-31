@@ -78,10 +78,9 @@
                             <?php if ($earnedBadge): ?>
                                 <div class="earned-info mt-3">
                                     <div class="alert alert-success d-flex align-items-center">
-                                        <i class="fas fa-trophy me-2"></i>
-                                        <div>
+                                        <i class="fas fa-trophy me-2"></i>                                        <div>
                                             <strong>Congratulations!</strong> You earned this badge on 
-                                            <?= date('F j, Y \a\t g:i A', strtotime($earnedBadge['earned_at'])) ?>.
+                                            <?= date('F j, Y \a\t g:i A', strtotime($earnedBadge['earned_date'])) ?>.
                                         </div>
                                     </div>
                                 </div>
@@ -128,10 +127,9 @@
                                             <div class="avatar-initial rounded-circle bg-primary">
                                                 <?= strtoupper(substr($earner['username'], 0, 2)) ?>
                                             </div>
-                                        </div>
-                                        <div>
+                                        </div>                                        <div>
                                             <div class="fw-bold small"><?= htmlspecialchars($earner['username']) ?></div>
-                                            <div class="text-muted small"><?= date('M j', strtotime($earner['earned_at'])) ?></div>
+                                            <div class="text-muted small"><?= date('M j', strtotime($earner['earned_date'])) ?></div>
                                         </div>
                                     </div>
                                 </div>

@@ -91,6 +91,27 @@ class Trip extends Model
         
         $this->db->bind(':user_id', $userId);
         $this->db->bind(':destination_id', $destinationId);
+          return $this->db->single();
+    }
+    
+    /**
+     * Find a trip by ID for a specific user
+     * 
+     * @param int $userId
+     * @param int $tripId
+     * @return array|bool
+     */
+    public function findUserTrip($userId, $tripId)
+    {
+        $this->db->query("
+            SELECT t.*, d.name as destination_name, d.latitude, d.longitude
+            FROM trips t
+            JOIN destinations d ON t.destination_id = d.id
+            WHERE t.id = :trip_id AND t.user_id = :user_id
+        ");
+        
+        $this->db->bind(':trip_id', $tripId);
+        $this->db->bind(':user_id', $userId);
         
         return $this->db->single();
     }

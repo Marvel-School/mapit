@@ -98,8 +98,14 @@ class TripController extends Controller
                     'status' => $status,
                     'type' => $type
                 ]);
-                
-                if ($result) {                    // Log the update
+                  if ($result) {
+                    // Check for badges if trip was marked as visited
+                    if ($status === 'visited' && $existingTrip['status'] !== 'visited') {
+                        $userModel = $this->model('User');
+                        $userModel->checkAndAwardBadges($_SESSION['user_id']);
+                    }
+                    
+                    // Log the update
                     $logModel = $this->model('Log');
                     $destinationName = $destination['name'] ?? 'unknown';
                     $logModel::write('INFO', "Trip updated via API for {$destinationName}", [
@@ -126,10 +132,10 @@ class TripController extends Controller
                     'status' => $status,
                     'type' => $type
                 ]);
-                
-                if ($tripId) {
-                    // Check for badges
-                    $tripModel->checkBadges($_SESSION['user_id']);
+                  if ($tripId) {
+                    // Check for badges when creating new trips
+                    $userModel = $this->model('User');
+                    $userModel->checkAndAwardBadges($_SESSION['user_id']);
                       // Log the creation
                     $logModel = $this->model('Log');
                     $destinationName = $destination['name'] ?? 'unknown';
@@ -328,6 +334,179 @@ class TripController extends Controller
             ], 'API');
             
             $this->jsonError('An error occurred while processing your request', 500);
+        }
+    }
+    
+    /**
+     * Start a trip by updating its status to 'in_progress'
+     * 
+     * @param int $id Trip ID
+     * @return void
+     */
+    public function start($id)
+    {
+        try {
+            // Session is already configured and started in App.php
+            if (session_status() === PHP_SESSION_NONE) {
+                session_start();
+            }
+            
+            // Check authentication
+            if (!isset($_SESSION['user_id'])) {
+                $this->jsonError('Unauthorized', 401);
+                return;
+            }
+            
+            // Rate limiting
+            if (!$this->checkRateLimit('api_trip_start', 10, 60)) { // 10 per minute
+                $this->jsonError('Too many requests. Please slow down.', 429);
+                return;
+            }
+            
+            // Validate trip ID
+            $tripId = $this->validateNumeric($id, 1);
+            if (!$tripId) {
+                $this->jsonError('Valid trip ID is required', 400);
+                return;
+            }
+            
+            $tripModel = $this->model('Trip');
+            
+            // Get trip and verify ownership
+            $trip = $tripModel->findUserTrip($_SESSION['user_id'], $tripId);
+            
+            if (!$trip) {
+                $this->jsonError('Trip not found or access denied', 404);
+                return;
+            }
+            
+            // Check if trip can be started (must be planned)
+            if ($trip['status'] !== 'planned') {
+                $this->jsonError('Trip can only be started from planned status', 400);
+                return;
+            }
+            
+            // Update trip status to in_progress
+            $result = $tripModel->updateStatus($tripId, 'in_progress');
+            
+            if ($result) {
+                // Log the status update
+                $logModel = $this->model('Log');
+                $destinationName = $trip['destination_name'] ?? 'unknown';
+                $logModel::write('INFO', "Trip started via API for {$destinationName}", [
+                    'user_id' => $_SESSION['user_id'],
+                    'trip_id' => $tripId,
+                    'destination_id' => $trip['destination_id'],
+                    'status' => 'in_progress'
+                ], 'API');
+                
+                $this->json([
+                    'success' => true,
+                    'message' => 'Trip started successfully',
+                    'trip' => array_merge($trip, ['status' => 'in_progress'])
+                ]);
+            } else {
+                $this->jsonError('Failed to start trip', 500);
+            }
+            
+        } catch (\Exception $e) {
+            // Log the error
+            $logModel = $this->model('Log');
+            $logModel::write('ERROR', 'API Trip start error: ' . $e->getMessage(), [
+                'user_id' => $_SESSION['user_id'] ?? null,
+                'trip_id' => $tripId ?? null,
+                'trace' => $e->getTraceAsString()
+            ], 'API');
+            
+            $this->jsonError('An error occurred while starting the trip', 500);
+        }
+    }
+    
+    /**
+     * Complete a trip by updating its status to 'visited'
+     * 
+     * @param int $id Trip ID
+     * @return void
+     */
+    public function complete($id)
+    {
+        try {
+            // Session is already configured and started in App.php
+            if (session_status() === PHP_SESSION_NONE) {
+                session_start();
+            }
+            
+            // Check authentication
+            if (!isset($_SESSION['user_id'])) {
+                $this->jsonError('Unauthorized', 401);
+                return;
+            }
+            
+            // Rate limiting
+            if (!$this->checkRateLimit('api_trip_complete', 10, 60)) { // 10 per minute
+                $this->jsonError('Too many requests. Please slow down.', 429);
+                return;
+            }
+            
+            // Validate trip ID
+            $tripId = $this->validateNumeric($id, 1);
+            if (!$tripId) {
+                $this->jsonError('Valid trip ID is required', 400);
+                return;
+            }
+            
+            $tripModel = $this->model('Trip');
+            
+            // Get trip and verify ownership
+            $trip = $tripModel->findUserTrip($_SESSION['user_id'], $tripId);
+            
+            if (!$trip) {
+                $this->jsonError('Trip not found or access denied', 404);
+                return;
+            }
+            
+            // Check if trip can be completed (must be in_progress)
+            if ($trip['status'] !== 'in_progress') {
+                $this->jsonError('Trip can only be completed from in_progress status', 400);
+                return;
+            }
+            
+            // Update trip status to visited
+            $result = $tripModel->updateStatus($tripId, 'visited');
+              if ($result) {
+                // Check for badges when completing trips
+                $userModel = $this->model('User');
+                $userModel->checkAndAwardBadges($_SESSION['user_id']);
+                
+                // Log the status update
+                $logModel = $this->model('Log');
+                $destinationName = $trip['destination_name'] ?? 'unknown';
+                $logModel::write('INFO', "Trip completed via API for {$destinationName}", [
+                    'user_id' => $_SESSION['user_id'],
+                    'trip_id' => $tripId,
+                    'destination_id' => $trip['destination_id'],
+                    'status' => 'visited'
+                ], 'API');
+                
+                $this->json([
+                    'success' => true,
+                    'message' => 'Trip completed successfully',
+                    'trip' => array_merge($trip, ['status' => 'visited'])
+                ]);
+            } else {
+                $this->jsonError('Failed to complete trip', 500);
+            }
+            
+        } catch (\Exception $e) {
+            // Log the error
+            $logModel = $this->model('Log');
+            $logModel::write('ERROR', 'API Trip complete error: ' . $e->getMessage(), [
+                'user_id' => $_SESSION['user_id'] ?? null,
+                'trip_id' => $tripId ?? null,
+                'trace' => $e->getTraceAsString()
+            ], 'API');
+            
+            $this->jsonError('An error occurred while completing the trip', 500);
         }
     }
     

@@ -106,19 +106,18 @@
                                         <div class="card-body p-3">
                                             <h6 class="card-title mb-2">
                                                 <i class="fas fa-trophy me-2"></i>Next Achievement
-                                            </h6>
-                                            <div class="d-flex justify-content-between align-items-center mb-2">
-                                                <span class="small"><?= htmlspecialchars($nextBadge['badge']['name']); ?></span>
-                                                <span class="small fw-bold"><?= round($nextBadge['percent']); ?>%</span>
+                                            </h6>                                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                                <span class="small"><?= htmlspecialchars($nextBadge['name']); ?></span>
+                                                <span class="small fw-bold"><?= round($nextBadge['progress']); ?>%</span>
                                             </div>
                                             <div class="progress" style="height: 8px;">
                                                 <div class="progress-bar bg-warning" role="progressbar" 
-                                                     style="width: <?= $nextBadge['percent']; ?>%" 
-                                                     aria-valuenow="<?= $nextBadge['percent']; ?>" 
+                                                     style="width: <?= $nextBadge['progress']; ?>%" 
+                                                     aria-valuenow="<?= $nextBadge['progress']; ?>" 
                                                      aria-valuemin="0" aria-valuemax="100"></div>
                                             </div>
                                             <small class="opacity-75 mt-1 d-block">
-                                                <?= $nextBadge['count']; ?> / <?= $nextBadge['badge']['threshold']; ?> 
+                                                <?= $nextBadge['current'] ?? 0; ?> / <?= $nextBadge['threshold']; ?>
                                                 <?= strtolower($nextBadge['badge']['description'] ?? 'completed'); ?>
                                             </small>
                                         </div>
@@ -480,14 +479,10 @@
     @keyframes fadeIn {
         from { opacity: 0; }
         to { opacity: 1; }
-    }
-
-    .badge {
+    }    .badge {
         font-size: 0.75em;
     }
 </style>
-
-<script src="/js/diagnostic-logger.js?v=<?= time(); ?>"></script>
 <script src="/js/image-resizer.js?v=<?= time(); ?>"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
@@ -635,28 +630,11 @@
                     }
                 });
             }
-              if (avatarUpload) {
-                // Add event listeners for file selection
+              if (avatarUpload) {                // Add event listeners for file selection
                 avatarUpload.addEventListener('change', function(e) {
-                    if (window.diagnosticLogger) {
-                        diagnosticLogger.log('📁 PROFILE: File selection event triggered', 'warn');
-                        diagnosticLogger.captureImageResizerState();
-                    }
-                    
                     const file = e.target.files[0];
                     if (!file) {
-                        if (window.diagnosticLogger) {
-                            diagnosticLogger.log('❌ PROFILE: No file selected', 'warn');
-                        }
                         return;
-                    }
-                    
-                    if (window.diagnosticLogger) {
-                        diagnosticLogger.log('📄 PROFILE: File selected', 'info', {
-                            name: file.name,
-                            size: file.size,
-                            type: file.type
-                        });
                     }
                     
                     // Basic validation
@@ -672,21 +650,9 @@
                         alert('File size must be less than 5MB');
                         return;
                     }
-                      // Open the resizer
-                    if (window.diagnosticLogger) {
-                        diagnosticLogger.log('🔄 PROFILE: Opening ImageResizer modal', 'warn');
-                        diagnosticLogger.captureImageResizerState();
-                    }
-                    imageResizer.openModal(file);
                     
-                    if (window.diagnosticLogger) {
-                        diagnosticLogger.log('✅ PROFILE: ImageResizer.openModal() called', 'warn');
-                        // Capture state after a short delay to see what happened
-                        setTimeout(() => {
-                            diagnosticLogger.log('⏰ PROFILE: Post-openModal state (500ms delay)', 'warn');
-                            diagnosticLogger.captureImageResizerState();
-                        }, 500);
-                    }
+                    // Open the resizer
+                    imageResizer.openModal(file);
                 });
                   // Prevent paste events on file inputs for security
                 avatarUpload.addEventListener('paste', function(e) {

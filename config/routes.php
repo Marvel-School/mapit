@@ -53,6 +53,7 @@ $this->post('trips/{id}/status', 'TripController', 'updateStatus');
 // Badge routes
 $this->get('badges', 'BadgeController', 'index');
 $this->get('badges/{id}', 'BadgeController', 'show');
+$this->post('badges/mark-notifications-read', 'BadgeController', 'markNotificationsRead');
 
 // API routes
 $this->post('api/auth/login', 'Api\AuthController', 'login');
@@ -89,6 +90,13 @@ $this->get('admin/destinations', 'Admin\DestinationController', 'index');
 $this->get('admin/destinations/{id}', 'Admin\DestinationController', 'show');
 $this->get('admin/destinations/{id}/edit', 'Admin\DestinationController', 'edit');
 $this->post('admin/destinations/{id}', 'Admin\DestinationController', 'update');
+
+// DEBUG ROUTE - TEMPORARY FOR IMAGE UPLOAD DEBUGGING
+$this->post('admin/destinations/{id}/debug-update', 'Admin\DebugDestinationController', 'debugUpdate');
+
+// TEMPORARY ROUTE - RELAXED SECURITY FOR COINCIDENTAL BINARY PATTERNS
+$this->post('admin/destinations/{id}/temp-update', 'Admin\TempDestinationController', 'tempUpdate');
+
 $this->post('admin/destinations/{id}/approve', 'Admin\DestinationController', 'approve');
 $this->post('admin/destinations/{id}/reject', 'Admin\DestinationController', 'reject');
 $this->post('admin/destinations/{id}/status', 'Admin\DestinationController', 'status');

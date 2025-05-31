@@ -205,18 +205,25 @@
 
 <script>
 function startTrip(tripId) {
+    console.log('Starting trip with ID:', tripId);
     if (confirm('Are you sure you want to start this trip?')) {
         fetch(`/api/trips/${tripId}/start`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-            }
+            },
+            credentials: 'same-origin'
+        })        .then(response => {
+            console.log('Response status:', response.status);
+            console.log('Response headers:', response.headers);
+            return response.json();
         })
-        .then(response => response.json())
         .then(data => {
+            console.log('Response data:', data);
             if (data.success) {
                 location.reload();
             } else {
+                console.error('API returned failure:', data);
                 alert('Error starting trip: ' + (data.message || 'Unknown error'));
             }
         })
@@ -228,18 +235,24 @@ function startTrip(tripId) {
 }
 
 function completeTrip(tripId) {
+    console.log('Completing trip with ID:', tripId);
     if (confirm('Are you sure you want to mark this trip as completed?')) {
         fetch(`/api/trips/${tripId}/complete`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-            }
+            },
+            credentials: 'same-origin'
+        })        .then(response => {
+            console.log('Complete trip response status:', response.status);
+            return response.json();
         })
-        .then(response => response.json())
         .then(data => {
+            console.log('Complete trip response data:', data);
             if (data.success) {
                 location.reload();
             } else {
+                console.error('API returned failure:', data);
                 alert('Error completing trip: ' + (data.message || 'Unknown error'));
             }
         })

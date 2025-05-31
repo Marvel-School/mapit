@@ -4,6 +4,7 @@ namespace App\Controllers\Admin;
 
 use App\Core\Controller;
 use App\Core\Database;
+use App\Core\SmartFileUpload;
 
 class DestinationController extends Controller
 {    /**
@@ -384,14 +385,134 @@ class DestinationController extends Controller
         if (!in_array($_POST['approval_status'], ['pending', 'approved', 'rejected'])) {
             $errors[] = 'Invalid approval status';
         }
+          if (!empty($errors)) {
+            $_SESSION['error'] = implode('<br>', $errors);
+            $this->redirect('/admin/destinations/' . $id . '/edit');
+            return;
+        }        // Handle image upload and deletion
+        $imagePath = isset($destination['image']) ? $destination['image'] : null; // Keep existing image by default
+        $deleteImage = isset($_POST['delete_image']) && $_POST['delete_image'] == '1';
         
+        if ($deleteImage) {
+            // Delete current image if it exists
+            if (isset($destination['image']) && !empty($destination['image'])) {
+                $fullImagePath = __DIR__ . '/../../public/images/destinations/' . $destination['image'];
+                if (file_exists($fullImagePath)) {
+                    unlink($fullImagePath);
+                    
+                    // Log successful image deletion
+                    $logModel::write('INFO', "Admin deleted destination image", [
+                        'admin_id' => $_SESSION['user_id'],
+                        'destination_id' => $id,
+                        'image_file' => $destination['image']
+                    ], 'Admin');
+                }
+            }
+            $imagePath = null; // Clear image path
+        }
+        
+        // Check for resized image data first (from image resizer)
+        $imageResized = $_POST['image_resized'] ?? '';
+        if (!empty($imageResized)) {
+            try {
+                // Validate the data URL format
+                if (preg_match('/^data:image\/(jpeg|jpg|png|gif|webp);base64,(.+)$/i', $imageResized, $matches)) {
+                    $imageType = strtolower($matches[1]);
+                    $imageData = base64_decode($matches[2]);
+                    
+                    if ($imageData !== false) {
+                        // Generate secure filename
+                        $filename = 'destination_admin_' . time() . '.jpg'; // Always save as JPEG
+                        $uploadPath = __DIR__ . '/../../public/images/destinations/' . $filename;
+                        
+                        // Ensure directory exists
+                        $dirPath = dirname($uploadPath);
+                        if (!is_dir($dirPath)) {
+                            mkdir($dirPath, 0755, true);
+                        }
+                        
+                        // Save the resized image
+                        if (file_put_contents($uploadPath, $imageData)) {
+                            // Delete old image if it exists and we're not just replacing due to delete checkbox
+                            if (!$deleteImage && isset($destination['image']) && !empty($destination['image'])) {
+                                $oldImagePath = __DIR__ . '/../../public/images/destinations/' . $destination['image'];
+                                if (file_exists($oldImagePath)) {
+                                    unlink($oldImagePath);
+                                }
+                            }
+                            $imagePath = $filename;
+                            
+                            // Log successful resized image upload
+                            $logModel::write('INFO', "Admin uploaded resized destination image", [
+                                'admin_id' => $_SESSION['user_id'],
+                                'destination_id' => $id,
+                                'filename' => $filename,
+                                'size' => strlen($imageData),
+                                'type' => 'resized_destination'
+                            ], 'Admin');
+                        } else {
+                            $errors['image'] = 'Failed to save resized image';
+                        }
+                    } else {
+                        $errors['image'] = 'Invalid image data format';
+                    }
+                } else {
+                    $errors['image'] = 'Invalid resized image format';
+                }
+            } catch (\Exception $e) {
+                $errors['image'] = 'Resized image processing failed: ' . $e->getMessage();
+                error_log("Admin resized destination image error: " . $e->getMessage());
+            }
+        }
+        // Fallback to traditional file upload if no resized data and file is uploaded
+        elseif (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
+            try {
+                $smartUpload = new SmartFileUpload(__DIR__ . '/../../public/images/destinations/');
+                $smartUpload->setSecurityLevel('strict'); // Stricter security for admin uploads
+                $newImagePath = $smartUpload->uploadImageSimple($_FILES['image'], 'destination_admin_' . time());
+                
+                if ($newImagePath) {
+                    // Delete old image if it exists and we're not just replacing due to delete checkbox
+                    if (!$deleteImage && isset($destination['image']) && !empty($destination['image'])) {
+                        $oldImagePath = __DIR__ . '/../../public/images/destinations/' . $destination['image'];
+                        if (file_exists($oldImagePath)) {
+                            unlink($oldImagePath);
+                        }
+                    }
+                    $imagePath = $newImagePath;
+                    
+                    // Log successful image upload
+                    $logModel::write('INFO', "Admin uploaded destination image", [
+                        'admin_id' => $_SESSION['user_id'],
+                        'destination_id' => $id,
+                        'image_file' => $newImagePath
+                    ], 'Admin');
+                } else {
+                    $errors['image'] = $smartUpload->getLastError() ?: 'Image upload failed';
+                }
+            } catch (\Exception $e) {
+                $errors['image'] = 'Image upload failed: ' . $e->getMessage();
+                  // Log the error
+                $logModel::write('ERROR', 'Admin destination image upload failed', [
+                    'admin_id' => $_SESSION['user_id'],
+                    'destination_id' => $id,
+                    'error' => $e->getMessage(),
+                    'file_info' => [
+                        'name' => $_FILES['image']['name'],
+                        'size' => $_FILES['image']['size'],
+                        'type' => $_FILES['image']['type']
+                    ]
+                ], 'FileUpload');
+            }
+        }
+        
+        // If there were image upload errors, show them
         if (!empty($errors)) {
             $_SESSION['error'] = implode('<br>', $errors);
             $this->redirect('/admin/destinations/' . $id . '/edit');
             return;
         }
-        
-        // Prepare update data
+          // Prepare update data
         $updateData = [
             'name' => trim($_POST['name']),
             'description' => trim($_POST['description'] ?? ''),
@@ -402,7 +523,8 @@ class DestinationController extends Controller
             'privacy' => $_POST['privacy'],
             'approval_status' => $_POST['approval_status'],
             'featured' => isset($_POST['featured']) ? 1 : 0,
-            'notes' => trim($_POST['notes'] ?? '')
+            'notes' => trim($_POST['notes'] ?? ''),
+            'image' => $imagePath
         ];
         
         // Track what changed for logging

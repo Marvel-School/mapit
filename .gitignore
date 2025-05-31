@@ -81,7 +81,26 @@ INTERACTIVE_MAP_FIX_COMPLETE.md
 PROFILE_PAGE_FIX_COMPLETE.md
 TRIP_STATUS_BADGES_COMPLETE.md
 
-# Cleanup scripts
+# Cleanup scripts and utilities
 cleanup_*.ps1
 cleanup_*.sh
 simple_cleanup.ps1
+
+# Debug and utility scripts in root directory
+check-*.php
+badge_*.php
+populate_*.php
+view_*.php
+complete_*.php
+*_report.php
+*_validation.php
+
+# Development documentation
+CLEANUP_SUCCESS.md
+*_SUCCESS.md
+*_REPORT.md
+
+# Scripts directory contents (development utilities)
+scripts/*.php
+scripts/*.sh
+scripts/*.ps1

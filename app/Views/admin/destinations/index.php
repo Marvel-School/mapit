@@ -199,6 +199,7 @@
                     <thead>                        <tr>
                             <th>ID</th>
                             <th>Name</th>
+                            <th>Image</th>
                             <th>Country</th>
                             <th>Creator</th>
                             <th>Status</th>
@@ -211,11 +212,23 @@
                     <tbody>
                         <?php foreach ($destinations as $destination): ?>
                             <tr>
-                                <td><?= $destination['id']; ?></td>
-                                <td>
+                                <td><?= $destination['id']; ?></td>                                <td>
                                     <strong><?= htmlspecialchars($destination['name']); ?></strong>
                                     <?php if ($destination['city']): ?>
                                         <br><small class="text-muted"><?= htmlspecialchars($destination['city']); ?></small>
+                                    <?php endif; ?>
+                                </td>
+                                <td class="text-center">
+                                    <?php if (!empty($destination['image'])): ?>
+                                        <img src="/images/destinations/<?= htmlspecialchars($destination['image']); ?>" 
+                                             alt="Destination image" 
+                                             class="img-thumbnail" 
+                                             style="width: 40px; height: 40px; object-fit: cover;"
+                                             title="<?= htmlspecialchars($destination['name']); ?>">
+                                    <?php else: ?>
+                                        <span class="text-muted">
+                                            <i class="fas fa-image" title="No image"></i>
+                                        </span>
                                     <?php endif; ?>
                                 </td>
                                 <td><?= htmlspecialchars($destination['country']); ?></td>

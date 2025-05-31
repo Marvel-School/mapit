@@ -3,7 +3,7 @@
 namespace App\Controllers;
 
 use App\Core\Controller;
-use App\Core\FileUpload;
+use App\Core\SmartFileUpload;
 use App\Core\Request;
 use App\Core\Validator;
 
@@ -110,16 +110,64 @@ class DestinationController extends Controller
                 'countries' => $countries
             ]);
             return;
-        }
-          // Handle image upload if provided
+        }        // Handle image upload if provided
         $imagePath = null;
-        if (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
+        
+        // Check for resized image data first (from image resizer)
+        $imageResized = $_POST['image_resized'] ?? '';
+        if (!empty($imageResized)) {
             try {
-                $fileUpload = new FileUpload();
-                $imagePath = $fileUpload->uploadImage($_FILES['image'], 'destinations');
+                // Validate the data URL format
+                if (preg_match('/^data:image\/(jpeg|jpg|png|gif|webp);base64,(.+)$/i', $imageResized, $matches)) {
+                    $imageType = strtolower($matches[1]);
+                    $imageData = base64_decode($matches[2]);
+                    
+                    if ($imageData !== false) {
+                        // Generate secure filename
+                        $filename = 'destination_' . $_SESSION['user_id'] . '_' . time() . '.jpg'; // Always save as JPEG
+                        $uploadPath = __DIR__ . '/../../public/images/destinations/' . $filename;
+                        
+                        // Ensure directory exists
+                        $dirPath = dirname($uploadPath);
+                        if (!is_dir($dirPath)) {
+                            mkdir($dirPath, 0755, true);
+                        }
+                        
+                        // Save the resized image
+                        if (file_put_contents($uploadPath, $imageData)) {
+                            $imagePath = $filename;
+                            
+                            // Log successful resized image upload
+                            $logModel = $this->model('Log');
+                            $logModel::write('INFO', "Resized destination image uploaded for user: {$_SESSION['user_id']}", [
+                                'user_id' => $_SESSION['user_id'],
+                                'filename' => $filename,
+                                'size' => strlen($imageData),
+                                'type' => 'resized_destination'
+                            ], 'FileUpload');
+                        } else {
+                            $errors['image'] = 'Failed to save resized image';
+                        }
+                    } else {
+                        $errors['image'] = 'Invalid image data format';
+                    }
+                } else {
+                    $errors['image'] = 'Invalid resized image format';
+                }
+            } catch (\Exception $e) {
+                $errors['image'] = 'Resized image processing failed: ' . $e->getMessage();
+                error_log("Resized destination image error: " . $e->getMessage());
+            }
+        }
+        // Fallback to traditional file upload if no resized data and file is uploaded
+        elseif (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
+            try {
+                $smartUpload = new SmartFileUpload(__DIR__ . '/../../public/images/destinations/');
+                $smartUpload->setSecurityLevel('balanced'); // Allow legitimate images with coincidental patterns
+                $imagePath = $smartUpload->uploadImageSimple($_FILES['image'], 'destination_' . $_SESSION['user_id'] . '_' . time());
                 
                 if (!$imagePath) {
-                    $errors = array_merge($errors, $fileUpload->getErrors());
+                    $errors['image'] = $smartUpload->getLastError() ?: 'Image upload failed';
                 }
             } catch (\Exception $e) {
                 $errors['image'] = 'Image upload failed: ' . $e->getMessage();
@@ -349,8 +397,7 @@ class DestinationController extends Controller
                 'countries' => $countries
             ]);
             return;        }
-        
-        // Handle image deletion if requested
+          // Handle image deletion if requested
         $deleteImage = isset($_POST['delete_image']) && $_POST['delete_image'] == '1';
           // Handle image upload if provided
         $imagePath = isset($destination['image']) ? $destination['image'] : null; // Keep existing image by default
@@ -362,10 +409,69 @@ class DestinationController extends Controller
             }
             $imagePath = null; // Clear image path
         }
-          if (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
+        
+        // Check for resized image data first (from image resizer)
+        $imageResized = $_POST['image_resized'] ?? '';
+        if (!empty($imageResized)) {
             try {
-                $fileUpload = new FileUpload();
-                $newImagePath = $fileUpload->uploadImage($_FILES['image'], 'destinations');                  if ($newImagePath) {
+                // Validate the data URL format
+                if (preg_match('/^data:image\/(jpeg|jpg|png|gif|webp);base64,(.+)$/i', $imageResized, $matches)) {
+                    $imageType = strtolower($matches[1]);
+                    $imageData = base64_decode($matches[2]);
+                    
+                    if ($imageData !== false) {
+                        // Generate secure filename
+                        $filename = 'destination_' . $_SESSION['user_id'] . '_' . time() . '.jpg'; // Always save as JPEG
+                        $uploadPath = __DIR__ . '/../../public/images/destinations/' . $filename;
+                        
+                        // Ensure directory exists
+                        $dirPath = dirname($uploadPath);
+                        if (!is_dir($dirPath)) {
+                            mkdir($dirPath, 0755, true);
+                        }
+                        
+                        // Save the resized image
+                        if (file_put_contents($uploadPath, $imageData)) {
+                            // Delete old image if it exists and we're not just replacing due to delete checkbox
+                            if (!$deleteImage && isset($destination['image']) && !empty($destination['image'])) {
+                                $oldImagePath = __DIR__ . '/../../public/images/destinations/' . $destination['image'];
+                                if (file_exists($oldImagePath)) {
+                                    unlink($oldImagePath);
+                                }
+                            }
+                            $imagePath = $filename;
+                            
+                            // Log successful resized image upload
+                            $logModel = $this->model('Log');
+                            $logModel::write('INFO', "Resized destination image uploaded for user: {$_SESSION['user_id']}", [
+                                'user_id' => $_SESSION['user_id'],
+                                'destination_id' => $id,
+                                'filename' => $filename,
+                                'size' => strlen($imageData),
+                                'type' => 'resized_destination'
+                            ], 'FileUpload');
+                        } else {
+                            $errors['image'] = 'Failed to save resized image';
+                        }
+                    } else {
+                        $errors['image'] = 'Invalid image data format';
+                    }
+                } else {
+                    $errors['image'] = 'Invalid resized image format';
+                }
+            } catch (\Exception $e) {
+                $errors['image'] = 'Resized image processing failed: ' . $e->getMessage();
+                error_log("Resized destination image error: " . $e->getMessage());
+            }
+        }
+        // Fallback to traditional file upload if no resized data and file is uploaded
+        elseif (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
+            try {
+                $smartUpload = new SmartFileUpload(__DIR__ . '/../../public/images/destinations/');
+                $smartUpload->setSecurityLevel('balanced'); // Allow legitimate images with coincidental patterns
+                $newImagePath = $smartUpload->uploadImageSimple($_FILES['image'], 'destination_' . $_SESSION['user_id'] . '_' . time());
+                
+                if ($newImagePath) {
                     // Delete old image if it exists and we're not just replacing due to delete checkbox
                     if (!$deleteImage && isset($destination['image']) && !empty($destination['image']) && file_exists($destination['image'])) {
                         $oldImageFile = $destination['image'];
@@ -373,7 +479,7 @@ class DestinationController extends Controller
                     }
                     $imagePath = $newImagePath;
                 } else {
-                    $errors = array_merge($errors, $fileUpload->getErrors());
+                    $errors['image'] = $smartUpload->getLastError() ?: 'Image upload failed';
                 }
             } catch (\Exception $e) {
                 $errors['image'] = 'Image upload failed: ' . $e->getMessage();

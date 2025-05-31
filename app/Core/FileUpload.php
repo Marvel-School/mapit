@@ -42,6 +42,7 @@ class FileUpload
     ];
     
     protected $errors = [];
+    protected $lastScanError = null;
     
     /**
      * Upload and validate an image file
@@ -125,11 +126,14 @@ class FileUpload
             if ($width < 50 || $height < 50) {
                 $this->errors[] = 'Image dimensions too small. Minimum: 50x50 pixels';
                 return false;
-            }
-            
-            // Scan for malicious content
-            if (!$this->scanImageForThreats($tempPath)) {
-                $this->errors[] = 'Image failed security scan';
+            }            // Scan for malicious content
+            $scanResult = $this->scanImageForThreats($tempPath);
+            if (!$scanResult) {
+                $errorMsg = 'Image failed security scan';
+                if ($this->lastScanError) {
+                    $errorMsg .= ': ' . $this->lastScanError;
+                }
+                $this->errors[] = $errorMsg;
                 return false;
             }
             
@@ -251,6 +255,16 @@ class FileUpload
     }
     
     /**
+     * Get the last security scan error details
+     * 
+     * @return string|null
+     */
+    public function getLastScanError()
+    {
+        return $this->lastScanError;
+    }
+    
+    /**
      * Validate image file signature (magic bytes)
      * 
      * @param string $filePath
@@ -303,13 +317,15 @@ class FileUpload
      * 
      * @param string $filePath
      * @return bool
-     */
-    protected function scanForMaliciousContent($filePath)
+     */    protected function scanForMaliciousContent($filePath)
     {
         try {
+            $this->lastScanError = null; // Reset error
+            
             // Read file content
             $content = file_get_contents($filePath);
             if ($content === false) {
+                $this->lastScanError = 'Could not read file content';
                 return false;
             }
             
@@ -334,6 +350,7 @@ class FileUpload
             
             foreach ($suspiciousPatterns as $pattern) {
                 if (stripos($content, $pattern) !== false) {
+                    $this->lastScanError = "Suspicious pattern detected: '$pattern'";
                     return false;
                 }
             }
@@ -346,15 +363,16 @@ class FileUpload
                 "\xCA\xFE\xBA\xBE", // Java class file
                 "\x50\x4B\x03\x04", // ZIP file (potential polyglot)
             ];
-            
-            foreach ($binaryPatterns as $pattern) {
+              foreach ($binaryPatterns as $pattern) {
                 if (strpos($content, $pattern) !== false) {
+                    $this->lastScanError = "Suspicious binary pattern detected";
                     return false;
                 }
             }
             
             // Check for polyglot files (files that are valid in multiple formats)
             if ($this->detectPolyglotFile($content)) {
+                $this->lastScanError = "Polyglot file detected (valid in multiple formats)";
                 return false;
             }
             
@@ -362,6 +380,7 @@ class FileUpload
             
         } catch (\Exception $e) {
             // If scanning fails, err on the side of caution
+            $this->lastScanError = "Scan exception: " . $e->getMessage();
             return false;
         }
     }

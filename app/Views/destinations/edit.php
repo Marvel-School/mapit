@@ -92,13 +92,12 @@
                         <div class="mb-3">
                             <label for="description" class="form-label">Description</label>
                             <textarea class="form-control" id="description" name="description" rows="4"><?= htmlspecialchars($destination['description'] ?? ''); ?></textarea>
-                        </div>
-                          <div class="row mb-3">
+                        </div>                        <div class="row mb-3">
                             <div class="col-md-6">
                                 <label for="image" class="form-label">Destination Image</label>
                                 <?php if (!empty($destination['image'])): ?>
                                     <div class="mb-2">
-                                        <img src="/images/destinations/<?= htmlspecialchars($destination['image']); ?>" alt="Current image" class="img-thumbnail" style="max-height: 100px;">
+                                        <img id="current-image" src="/images/destinations/<?= htmlspecialchars($destination['image']); ?>" alt="Current image" class="img-thumbnail" style="max-height: 100px;">
                                         <div class="form-check mt-1">
                                             <input class="form-check-input" type="checkbox" id="delete_image" name="delete_image" value="1">
                                             <label class="form-check-label small" for="delete_image">Delete current image</label>
@@ -106,19 +105,39 @@
                                     </div>
                                 <?php endif; ?>
                                 <input type="file" class="form-control" id="image" name="image" accept="image/jpeg,image/png,image/gif,image/webp">
+                                <input type="hidden" id="image_resized" name="image_resized" value="">
                                 <div class="form-text">
-                                    <strong>Security requirements:</strong><br>
+                                    <strong>Image requirements:</strong><br>
                                     • Max file size: 5MB<br>
                                     • Allowed formats: JPG, PNG, GIF, WebP<br>
-                                    • Images will be automatically processed for security<br>
+                                    • Large images will be automatically resized for optimal performance<br>
                                     • EXIF data will be removed for privacy
                                 </div>
+                                <div id="image-upload-feedback" class="upload-feedback mt-2" style="display: none;"></div>
                                 <?php if (isset($errors['image'])): ?>
                                     <div class="text-danger small mt-1">
                                         <i class="fas fa-exclamation-triangle"></i> <?= htmlspecialchars($errors['image']); ?>
                                     </div>
                                 <?php endif; ?>
                             </div>
+                            
+                            <div class="col-md-6">
+                                <div class="image-preview-container" style="display: none;">
+                                    <label class="form-label">New Image Preview</label>
+                                    <div class="border rounded p-2 text-center">
+                                        <img id="image-preview" src="" alt="Image preview" class="img-fluid rounded" style="max-height: 200px;">
+                                        <div class="mt-2 small text-muted">
+                                            <span id="image-dimensions"></span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="visit-date-container" style="<?= isset($destination['visited']) && $destination['visited'] == 1 ? '' : 'display: none;' ?>">
+                                    <label for="visit_date" class="form-label">Visit Date</label>
+                                    <input type="date" class="form-control" id="visit_date" name="visit_date" value="<?= htmlspecialchars($destination['visit_date'] ?? ''); ?>">
+                                </div>
+                            </div>
+                        </div>
                             
                             <div class="col-md-6 visit-date-container" style="<?= isset($destination['visited']) && $destination['visited'] == 1 ? '' : 'display: none;' ?>">
                                 <label for="visit_date" class="form-label">Visit Date</label>
@@ -297,13 +316,125 @@ document.addEventListener('DOMContentLoaded', function() {
         latInput.value = position.lat.toFixed(6);
         lngInput.value = position.lng.toFixed(6);
     }
-    
-    if (mapElement) {
+      if (mapElement) {
         // Initialize map when the page is loaded
         initMap();
+    }
+    
+    // Initialize image resizer for destination images
+    const imageUpload = document.getElementById('image');
+    const imageResizedInput = document.getElementById('image_resized');
+    const imagePreview = document.getElementById('image-preview');
+    const imagePreviewContainer = document.querySelector('.image-preview-container');
+    const imageDimensions = document.getElementById('image-dimensions');
+    const currentImage = document.getElementById('current-image');
+    
+    if (imageUpload) {
+        // Initialize ImageResizer for destination images (landscape format, larger dimensions)
+        const destinationImageResizer = new ImageResizer({
+            targetWidth: 1200,
+            targetHeight: 800,
+            outputFormat: 'jpeg',
+            outputQuality: 0.85,
+            onResize: function(resizedFile, resizedDataUrl) {
+                console.log('🎯 Destination image resized');
+                
+                try {
+                    // Update hidden input with resized data
+                    if (imageResizedInput) {
+                        imageResizedInput.value = resizedDataUrl;
+                    }
+                    
+                    // Update preview
+                    if (imagePreview && imagePreviewContainer) {
+                        imagePreview.src = resizedDataUrl;
+                        imagePreviewContainer.style.display = 'block';
+                        
+                        // Show dimensions
+                        if (imageDimensions) {
+                            imageDimensions.textContent = `Resized to 1200x800px • ${(resizedDataUrl.length / 1024).toFixed(0)}KB`;
+                        }
+                    }
+                    
+                    // Show success feedback
+                    const feedback = document.getElementById('image-upload-feedback');
+                    if (feedback) {
+                        feedback.className = 'alert alert-success small';
+                        feedback.innerHTML = '<i class="fas fa-check-circle"></i> Image resized and optimized for web display';
+                        feedback.style.display = 'block';
+                    }
+                } catch (error) {
+                    console.error('Error in destination image resize callback:', error);
+                }
+            },
+            onError: function(error) {
+                console.error('Destination image resize error:', error);
+                
+                // Show error feedback
+                const feedback = document.getElementById('image-upload-feedback');
+                if (feedback) {
+                    feedback.className = 'alert alert-danger small';
+                    feedback.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${error}`;
+                    feedback.style.display = 'block';
+                }
+            }
+        });
+        
+        // Handle file selection
+        imageUpload.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) {
+                // Clear preview and inputs if no file selected
+                if (imagePreviewContainer) {
+                    imagePreviewContainer.style.display = 'none';
+                }
+                if (imageResizedInput) {
+                    imageResizedInput.value = '';
+                }
+                const feedback = document.getElementById('image-upload-feedback');
+                if (feedback) {
+                    feedback.style.display = 'none';
+                }
+                return;
+            }
+            
+            // Check if image is oversized and needs resizing
+            const img = new Image();
+            img.onload = function() {
+                if (img.width > 1200 || img.height > 800) {
+                    // Image is oversized, trigger resizer
+                    destinationImageResizer.processFile(file);
+                } else {
+                    // Image is appropriately sized, show preview directly
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        if (imagePreview && imagePreviewContainer) {
+                            imagePreview.src = e.target.result;
+                            imagePreviewContainer.style.display = 'block';
+                            
+                            if (imageDimensions) {
+                                imageDimensions.textContent = `${img.width}x${img.height}px • ${(file.size / 1024).toFixed(0)}KB`;
+                            }
+                        }
+                        
+                        // Show info feedback
+                        const feedback = document.getElementById('image-upload-feedback');
+                        if (feedback) {
+                            feedback.className = 'alert alert-info small';
+                            feedback.innerHTML = '<i class="fas fa-info-circle"></i> Image size is optimal, no resizing needed';
+                            feedback.style.display = 'block';
+                        }
+                    };
+                    reader.readAsDataURL(file);
+                }
+            };
+            img.src = URL.createObjectURL(file);
+        });
     }
 });
 </script>
 
+<!-- Image Resizer -->
+<script src="/js/image-resizer.js"></script>
 <!-- Secure Upload Validation -->
 <script src="/js/secure-upload.js"></script>

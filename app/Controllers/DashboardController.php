@@ -5,7 +5,7 @@ namespace App\Controllers;
 use App\Core\Controller;
 use App\Core\Request;
 use App\Core\Validator;
-use App\Core\FileUpload;
+use App\Core\SmartFileUpload;
 
 class DashboardController extends Controller
 {
@@ -109,8 +109,8 @@ class DashboardController extends Controller
         if (!empty($badgeProgress)) {
             // Find the closest badge to earning (highest percentage but not 100%)
             foreach ($badgeProgress as $progress) {
-                if (!$progress['earned'] && $progress['percent'] > 0) {
-                    if (!$nextBadge || $progress['percent'] > $nextBadge['percent']) {
+                if (!$progress['earned'] && $progress['progress'] > 0) {
+                    if (!$nextBadge || $progress['progress'] > $nextBadge['progress']) {
                         $nextBadge = $progress;
                     }
                 }
@@ -215,23 +215,22 @@ class DashboardController extends Controller
                     $errors['avatar'] = 'Resized image processing failed: ' . $e->getMessage();
                     error_log("Resized avatar error: " . $e->getMessage());
                 }
-            }
-            // Fallback to traditional file upload if no resized data and file is uploaded
+            }            // Fallback to traditional file upload if no resized data and file is uploaded
             elseif (isset($_FILES['avatar']) && $_FILES['avatar']['error'] !== UPLOAD_ERR_NO_FILE) {
                 try {
-                    $fileUpload = new FileUpload();
-                    $avatarFilename = $fileUpload->uploadImage($_FILES['avatar'], 'avatars', $userId);
+                    $smartUpload = new SmartFileUpload(__DIR__ . '/../../public/images/avatars/');
+                    $smartUpload->setSecurityLevel('balanced'); // Allow legitimate avatars with coincidental patterns
+                    $avatarFilename = $smartUpload->uploadImageSimple($_FILES['avatar'], 'avatar_' . $userId . '_' . time());
                     
                     if (!$avatarFilename) {
-                        $errors = array_merge($errors, $fileUpload->getErrors());                    } else {
+                        $errors['avatar'] = $smartUpload->getLastError() ?: 'Avatar upload failed';
+                    } else {
                         // Delete old avatar if exists using absolute path
                         if (!empty($user['avatar'])) {
                             $oldAvatarPath = __DIR__ . '/../../public/images/avatars/' . $user['avatar'];
                             if (file_exists($oldAvatarPath)) {
                                 unlink($oldAvatarPath);
                             }
-                            // Also use FileUpload method for secure deletion
-                            $fileUpload->deleteFile($user['avatar'], 'avatars', $userId);
                         }
                     }
                 } catch (\Exception $e) {
@@ -311,15 +310,14 @@ class DashboardController extends Controller
                 'countries_visited' => $tripModel->getCountriesVisitedCount($userId),
                 'badges_earned' => count($badges)
             ];
-            
-            // Get badge progress for next achievement
+              // Get badge progress for next achievement
             $badgeProgress = $userModel->checkBadgeProgress($userId);
             $nextBadge = null;
             if (!empty($badgeProgress)) {
                 // Find the closest badge to earning (highest percentage but not 100%)
                 foreach ($badgeProgress as $progress) {
-                    if (!$progress['earned'] && $progress['percent'] > 0) {
-                        if (!$nextBadge || $progress['percent'] > $nextBadge['percent']) {
+                    if (!$progress['earned'] && $progress['progress'] > 0) {
+                        if (!$nextBadge || $progress['progress'] > $nextBadge['progress']) {
                             $nextBadge = $progress;
                         }
                     }

@@ -85,13 +85,30 @@ $title = 'Destination Details - Admin';
                                         </a>
                                     </p>
                                 </div>
-                            </div>
-
-                            <?php if ($destination['description']): ?>
+                            </div>                            <?php if ($destination['description']): ?>
                             <div class="row mt-3">
                                 <div class="col-12">
                                     <h6 class="text-muted">Description</h6>
                                     <p><?= nl2br(htmlspecialchars($destination['description'])) ?></p>
+                                </div>
+                            </div>
+                            <?php endif; ?>
+
+                            <!-- Destination Image -->
+                            <?php if (!empty($destination['image'])): ?>
+                            <div class="row mt-3">
+                                <div class="col-12">
+                                    <h6 class="text-muted">Destination Image</h6>
+                                    <div class="text-center">
+                                        <img src="/images/destinations/<?= htmlspecialchars($destination['image']); ?>" 
+                                             alt="<?= htmlspecialchars($destination['name']); ?>" 
+                                             class="img-fluid rounded shadow-sm" 
+                                             style="max-height: 300px; max-width: 100%; object-fit: cover;"
+                                             onclick="showImageModal('<?= htmlspecialchars($destination['image']); ?>', '<?= htmlspecialchars($destination['name']); ?>')">
+                                        <div class="text-muted small mt-1">
+                                            <i class="fas fa-search-plus"></i> Click to view full size
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                             <?php endif; ?>
@@ -229,8 +246,40 @@ function deleteDestination(destinationId) {
             }
         })        .catch(error => {
             console.error('Error:', error);
-            alert('Error deleting destination');
-        });
+            alert('Error deleting destination');        });
     }
+}
+
+function showImageModal(imagePath, altText) {
+    // Create modal if it doesn't exist
+    let modal = document.getElementById('imageModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'imageModal';
+        modal.className = 'modal fade';
+        modal.innerHTML = `
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Destination Image</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body text-center">
+                        <img id="modalImage" src="" alt="" class="img-fluid">
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+    
+    // Update image and show modal
+    const modalImage = document.getElementById('modalImage');
+    modalImage.src = '/images/destinations/' + imagePath;
+    modalImage.alt = altText;
+    
+    // Show modal using Bootstrap
+    const bootstrapModal = new bootstrap.Modal(modal);
+    bootstrapModal.show();
 }
 </script>

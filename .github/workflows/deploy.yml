@@ -143,14 +143,12 @@ jobs:
           sudo chmod -R 755 /opt/mapit/current
           sudo chmod -R 775 /opt/mapit/current/storage
           sudo chmod -R 775 /opt/mapit/current/public
-        "
-
-    - name: Deploy with Docker Compose
+        "    - name: Deploy with Docker Compose
       run: |
         ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }} "
           cd /opt/mapit/current
           sudo docker compose -f docker-compose.production.yml down || true
-          sudo docker compose -f docker-compose.production.yml up -d
+          sudo docker compose -f docker-compose.production.yml up -d --build
         "
 
     - name: Wait for services to start

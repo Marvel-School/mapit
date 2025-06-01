@@ -164,11 +164,12 @@ jobs:
         echo "Testing HTTP connectivity..."
         sleep 30
         if curl -f -s -m 10 http://${{ secrets.PRODUCTION_HOST }}/ > /dev/null; then
-          echo "✅ HTTP site is accessible"
-        else
+          echo "✅ HTTP site is accessible"        else
           echo "❌ HTTP site is not accessible - checking logs..."
           ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }} "sudo docker logs mapit_nginx_prod --tail 20"
-        fi    - name: Setup SSL certificates
+        fi
+
+    - name: Setup SSL certificates
       run: |
         ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }} "
           cd /opt/mapit/current

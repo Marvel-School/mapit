@@ -590,5 +590,27 @@ class User extends Model
         } catch (\Exception $e) {
             return false;
         }
+    }    /**
+     * Get users by role(s)
+     * 
+     * @param string|array $roles
+     * @return array
+     */
+    public function getByRole($roles)
+    {
+        if (is_string($roles)) {
+            $roles = [$roles];
+        }
+        
+        $placeholders = str_repeat('?,', count($roles) - 1) . '?';
+        $sql = "SELECT id, username, email, role FROM {$this->table} WHERE role IN ({$placeholders}) ORDER BY username";
+        
+        $this->db->query($sql);
+        
+        foreach ($roles as $index => $role) {
+            $this->db->bind($index + 1, $role);
+        }
+        
+        return $this->db->resultSet();
     }
 }

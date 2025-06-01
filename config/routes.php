@@ -114,6 +114,14 @@ $this->post('admin/destinations/{id}/reject', 'Admin\DestinationController', 're
 $this->post('admin/destinations/{id}/status', 'Admin\DestinationController', 'status');
 $this->delete('admin/destinations/{id}', 'Admin\DestinationController', 'delete');
 
+// Admin Contact/Support Management routes
+$this->get('admin/contacts', 'Admin\ContactController', 'index');
+$this->get('admin/contacts/{id}', 'Admin\ContactController', 'show');
+$this->post('admin/contacts/{id}/status', 'Admin\ContactController', 'updateStatus');
+$this->post('admin/contacts/{id}/notes', 'Admin\ContactController', 'addNotes');
+$this->post('admin/contacts/bulk', 'Admin\ContactController', 'bulkAction');
+$this->get('admin/contacts/export', 'Admin\ContactController', 'export');
+
 $this->get('admin/logs', 'Admin\LogController', 'index');
 $this->get('admin/logs/{id}/data', 'Admin\LogController', 'data');
 $this->post('admin/logs/clear', 'Admin\LogController', 'clear');
@@ -125,3 +133,14 @@ $this->delete('admin/logs/{id}', 'Admin\LogController', 'delete');
 // $this->get('api/debug/stats', 'DebugController', 'stats');
 // $this->get('admin/debug', 'DebugController', 'adminPage');
 $this->get('api/debug/environment', 'Api\EnvironmentController', 'getInfo');
+
+// Test routes for contact system
+$this->get('api/test/contacts', 'Api\SimpleApiController', 'testContacts');
+
+// Test routes for contact admin interface (no auth)
+$this->get('test/contacts', 'TestContactController', 'testContacts');
+$this->get('test/contacts/{id}', 'TestContactController', 'testContact');
+
+// Test routes for contact admin interface (no auth)
+$this->get('test/contacts', 'TestContactController', 'testContacts');
+$this->get('test/contacts/{id}', 'TestContactController', 'testContact');

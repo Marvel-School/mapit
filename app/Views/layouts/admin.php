@@ -39,11 +39,16 @@
                                 <i class="fas fa-users me-2"></i>
                                 Users
                             </a>
-                        </li>
-                        <li class="nav-item">
+                        </li>                        <li class="nav-item">
                             <a class="nav-link text-white" href="/admin/destinations">
                                 <i class="fas fa-map-marker-alt me-2"></i>
                                 Destinations
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-white" href="/admin/contacts">
+                                <i class="fas fa-envelope me-2"></i>
+                                Support
                             </a>
                         </li>
                         <li class="nav-item">

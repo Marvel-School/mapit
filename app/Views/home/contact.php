@@ -17,9 +17,9 @@
     <div class="container">
         <div class="row">
             <div class="col-lg-8 mx-auto">
-                <div class="card border-0 shadow">
-                    <div class="card-body p-4">
+                <div class="card border-0 shadow">                    <div class="card-body p-4">
                         <form action="/contact" method="POST">
+                            <?= \App\Core\View::csrfField(); ?>
                             <div class="mb-3">
                                 <label for="name" class="form-label">Name</label>
                                 <input type="text" class="form-control <?= isset($errors['name']) ? 'is-invalid' : ''; ?>" id="name" name="name" value="<?= htmlspecialchars($name ?? ''); ?>" required>
@@ -27,12 +27,19 @@
                                     <div class="invalid-feedback"><?= $errors['name']; ?></div>
                                 <?php endif; ?>
                             </div>
-                            
-                            <div class="mb-3">
+                              <div class="mb-3">
                                 <label for="email" class="form-label">Email</label>
                                 <input type="email" class="form-control <?= isset($errors['email']) ? 'is-invalid' : ''; ?>" id="email" name="email" value="<?= htmlspecialchars($email ?? ''); ?>" required>
                                 <?php if (isset($errors['email'])): ?>
                                     <div class="invalid-feedback"><?= $errors['email']; ?></div>
+                                <?php endif; ?>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="subject" class="form-label">Subject</label>
+                                <input type="text" class="form-control <?= isset($errors['subject']) ? 'is-invalid' : ''; ?>" id="subject" name="subject" value="<?= htmlspecialchars($subject ?? ''); ?>" placeholder="What is your message about?">
+                                <?php if (isset($errors['subject'])): ?>
+                                    <div class="invalid-feedback"><?= $errors['subject']; ?></div>
                                 <?php endif; ?>
                             </div>
                             

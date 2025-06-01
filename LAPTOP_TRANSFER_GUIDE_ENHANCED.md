@@ -44,7 +44,7 @@ If you only want to restore the database on an existing MapIt installation, you 
 ├── 📄 .env
 ├── 📄 laptop_setup_enhanced.ps1             (New enhanced setup script)
 ├── 📄 verify_setup_enhanced.ps1             (Verification script)
-├── 📄 SETUP_LAPTOP_ENHANCED.bat             (Double-click setup)
+├── 📄 SETUP_LAPTOP_ENHANCED.bat             (Double-click setup)s
 └── 📄 mapit_database_backup_READY_FOR_LAPTOP.sql
 ```
 

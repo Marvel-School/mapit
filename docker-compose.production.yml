@@ -39,15 +39,6 @@ services:
       - php
     restart: unless-stopped
 
-  # Certbot for SSL certificates
-  certbot:
-    image: certbot/certbot:latest
-    container_name: mapit_certbot
-    volumes:
-      - certbot_www:/var/www/certbot
-      - certbot_conf:/etc/letsencrypt
-    command: certonly --webroot --webroot-path=/var/www/certbot --email admin@mapitedu.nl --agree-tos --no-eff-email -d mapitedu.nl -d www.mapitedu.nl
-
   # MySQL Database
   mysql:
     image: mysql:8.0

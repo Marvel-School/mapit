@@ -135,9 +135,7 @@ jobs:
         REDIS_PORT=6379
         REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
         EOF
-        "
-
-    - name: Set permissions
+        "    - name: Set permissions
       run: |
         ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }} "
           sudo chown -R www-data:www-data /opt/mapit/current

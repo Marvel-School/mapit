@@ -134,4 +134,4 @@ Once everything is working:
 - Your Google Maps API key is now secure in GitHub secrets
 - You can continue developing locally with your existing setup
 - Push changes to `main` branch for automatic deployment
-- Monitor your application via Grafana dashboard
+- Monitor your application via Grafana dashboard test

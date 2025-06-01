@@ -345,22 +345,20 @@
                                     <h5>Change Password</h5>
                                     <p class="text-muted small">Leave blank if you don't want to change your password</p>
                                     
-                                    <div class="row">
-                                        <div class="col-md-6 mb-3">
+                                    <div class="row">                                        <div class="col-md-6 mb-3">
                                             <label for="current_password" class="form-label">Current Password</label>
-                                            <input type="password" class="form-control" id="current_password" name="current_password">
+                                            <input type="password" class="form-control" id="current_password" name="current_password" autocomplete="off">
                                         </div>
                                     </div>
                                     
-                                    <div class="row">
-                                        <div class="col-md-6 mb-3">
+                                    <div class="row">                                        <div class="col-md-6 mb-3">
                                             <label for="new_password" class="form-label">New Password</label>
-                                            <input type="password" class="form-control" id="new_password" name="new_password">
+                                            <input type="password" class="form-control" id="new_password" name="new_password" autocomplete="new-password">
                                         </div>
                                         
                                         <div class="col-md-6 mb-3">
                                             <label for="new_password_confirm" class="form-label">Confirm New Password</label>
-                                            <input type="password" class="form-control" id="new_password_confirm" name="new_password_confirm">
+                                            <input type="password" class="form-control" id="new_password_confirm" name="new_password_confirm" autocomplete="new-password">
                                         </div>
                                     </div>
                                     

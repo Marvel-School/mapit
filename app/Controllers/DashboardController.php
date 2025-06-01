@@ -153,9 +153,7 @@ class DashboardController extends Controller
             $currentPassword = $_POST['current_password'] ?? '';
             $newPassword = $_POST['new_password'] ?? '';
             $confirmPassword = $_POST['new_password_confirm'] ?? '';
-            $settings = $_POST['settings'] ?? [];
-            
-            // Debug form data
+            $settings = $_POST['settings'] ?? [];            // Debug form data
             error_log("Form data received: " . print_r($_POST, true));
               // Get user data
             $userModel = $this->model('User');
@@ -271,22 +269,20 @@ class DashboardController extends Controller
         if (!empty($website) && !filter_var($website, FILTER_VALIDATE_URL)) {
             $errors['website'] = 'Website must be a valid URL';
         }
-        
-        // Check if password is being updated
-        $updatePassword = !empty($currentPassword) || !empty($newPassword) || !empty($confirmPassword);
+          // Check if password is being updated - only trigger validation if user is intentionally changing password
+        // Only validate passwords if at least the new password field has content (indicating intent to change)
+        $updatePassword = !empty($newPassword);
         
         if ($updatePassword) {
             // Validate current password
             if (empty($currentPassword)) {
-                $errors['current_password'] = 'Current password is required';
+                $errors['current_password'] = 'Current password is required to change password';
             } elseif (!password_verify($currentPassword, $user['password_hash'])) {
                 $errors['current_password'] = 'Current password is incorrect';
             }
             
             // Validate new password
-            if (empty($newPassword)) {
-                $errors['new_password'] = 'New password is required';
-            } elseif (strlen($newPassword) < 6) {
+            if (strlen($newPassword) < 6) {
                 $errors['new_password'] = 'New password must be at least 6 characters';
             }
             
@@ -294,7 +290,7 @@ class DashboardController extends Controller
             if ($newPassword !== $confirmPassword) {
                 $errors['new_password_confirm'] = 'Passwords do not match';
             }
-        }        // If there are errors, return to profile page with errors
+        }// If there are errors, return to profile page with errors
         if (!empty($errors)) {
             // Get user badges
             $badgeModel = $this->model('Badge');
@@ -404,10 +400,10 @@ class DashboardController extends Controller
         error_log("Profile update successful - redirecting with success message");
         $_SESSION['success'] = 'Profile updated successfully';
         $this->redirect('/profile');
-        
-        } catch (\Exception $e) {
+          } catch (\Exception $e) {
             // Handle any unexpected errors
             error_log("Profile update error: " . $e->getMessage());
+            error_log("Profile update error trace: " . $e->getTraceAsString());
             
             // Get user data for error display
             $userModel = $this->model('User');
@@ -417,6 +413,31 @@ class DashboardController extends Controller
             $badgeModel = $this->model('Badge');
             $badges = $badgeModel->getUserBadges($userId);
             
+            // Get trip statistics for profile stats display
+            $tripModel = $this->model('Trip');
+            $tripStats = $tripModel->getUserStats($userId);
+            
+            // Calculate profile statistics
+            $profileStats = [
+                'trips_count' => ($tripStats['visited'] ?? 0) + ($tripStats['planned'] ?? 0),
+                'countries_visited' => $tripModel->getCountriesVisitedCount($userId),
+                'badges_earned' => count($badges)
+            ];
+            
+            // Get badge progress for next achievement
+            $badgeProgress = $userModel->checkBadgeProgress($userId);
+            $nextBadge = null;
+            if (!empty($badgeProgress)) {
+                // Find the closest badge to earning (highest percentage but not 100%)
+                foreach ($badgeProgress as $progress) {
+                    if (!$progress['earned'] && $progress['progress'] > 0) {
+                        if (!$nextBadge || $progress['progress'] > $nextBadge['progress']) {
+                            $nextBadge = $progress;
+                        }
+                    }
+                }
+            }
+            
             // Get countries as associative array for dropdown
             $countries = $this->getCountries();
             
@@ -424,8 +445,10 @@ class DashboardController extends Controller
                 'title' => 'My Profile',
                 'user' => $user,
                 'badges' => $badges,
+                'profileStats' => $profileStats,
+                'nextBadge' => $nextBadge,
                 'countries' => $countries,
-                'errors' => ['update' => 'An unexpected error occurred while updating your profile.']
+                'errors' => ['update' => 'An unexpected error occurred while updating your profile: ' . $e->getMessage()]
             ]);
         }
     }

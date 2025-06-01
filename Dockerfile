@@ -46,6 +46,10 @@ RUN chown -R www-data:www-data /var/www/html \
 RUN a2enmod rewrite headers
 COPY docker/apache-config.conf /etc/apache2/sites-available/000-default.conf
 
+# Configure Apache security settings
+RUN echo "ServerTokens Prod" >> /etc/apache2/apache2.conf \
+    && echo "ServerSignature Off" >> /etc/apache2/apache2.conf
+
 # Create storage directories
 RUN mkdir -p /var/www/html/storage/logs \
     && mkdir -p /var/www/html/storage/cache \

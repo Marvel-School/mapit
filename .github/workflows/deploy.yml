@@ -168,42 +168,54 @@ jobs:
         else
           echo "❌ HTTP site is not accessible - checking logs..."
           ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }} "sudo docker logs mapit_nginx_prod --tail 20"
-        fi
-
-    - name: Setup SSL certificates
+        fi    - name: Setup SSL certificates
       run: |
         ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }} "
           cd /opt/mapit/current
           
-          # Make sure domain points to this server first
-          echo 'Checking if domain points to this server...'
-          DOMAIN_IP=\$(dig +short mapitedu.nl | tail -n1)
+          echo '🔍 Checking if domain points to this server...'
           SERVER_IP=\$(curl -s ifconfig.me)
+          echo '   Server IP: '\$SERVER_IP
           
-          if [ \"\$DOMAIN_IP\" = \"\$SERVER_IP\" ]; then
-            echo '✅ Domain points to this server, proceeding with SSL setup'
+          # Test if the domain resolves to this server by checking HTTP access
+          echo '🌐 Testing HTTP access to domain...'
+          if curl -f -s -m 10 -H 'Host: mapitedu.nl' http://localhost/ > /dev/null; then
+            echo '✅ Domain is accessible via HTTP, proceeding with SSL setup'
+            
+            # Create certbot webroot directory
+            sudo mkdir -p /var/lib/docker/volumes/mapit_prod_network_certbot_www/_data
+            sudo chmod 755 /var/lib/docker/volumes/mapit_prod_network_certbot_www/_data
             
             # Get SSL certificates using certbot
+            echo '📋 Requesting SSL certificates...'
             sudo docker compose -f docker-compose.production.yml run --rm certbot
             
             # Check if certificates were created
-            if sudo docker volume inspect mapit_certbot_conf >/dev/null 2>&1; then
-              echo '✅ SSL certificates obtained'
+            if sudo docker volume inspect mapit_prod_network_certbot_conf >/dev/null 2>&1; then
+              echo '✅ SSL certificates obtained successfully'
               
               # Switch to HTTPS configuration
-              sudo cp docker/production/nginx/https.conf /tmp/https-nginx.conf
-              sudo docker cp /tmp/https-nginx.conf mapit_nginx_prod:/etc/nginx/conf.d/default.conf
+              echo '🔄 Switching to HTTPS configuration...'
+              sudo docker cp docker/production/nginx/https.conf mapit_nginx_prod:/etc/nginx/conf.d/default.conf
               
-              # Reload nginx with HTTPS config
-              sudo docker exec mapit_nginx_prod nginx -t && sudo docker exec mapit_nginx_prod nginx -s reload
-              
-              echo '🚀 HTTPS is now active!'
+              # Test nginx configuration
+              if sudo docker exec mapit_nginx_prod nginx -t; then
+                # Reload nginx with HTTPS config
+                sudo docker exec mapit_nginx_prod nginx -s reload
+                echo '🚀 HTTPS is now active!'
+                echo '📍 Your site is available at: https://mapitedu.nl'
+              else
+                echo '❌ HTTPS configuration test failed, staying with HTTP'
+              fi
             else
               echo '⚠️ SSL certificate setup failed, continuing with HTTP'
             fi
           else
-            echo '⚠️ Domain does not point to this server yet (Domain: $DOMAIN_IP, Server: $SERVER_IP)'
-            echo '   Please update your DNS settings and run deployment again for SSL'
+            echo '⚠️ Domain HTTP test failed. This could mean:'
+            echo '   1. DNS is not pointing to this server yet'
+            echo '   2. HTTP site is not accessible'
+            echo '   Please check DNS settings and try again'
+            echo '   For now, continuing with HTTP only'
           fi
         "
 

@@ -132,8 +132,7 @@ jobs:
         REDIS_HOST=redis
         REDIS_PORT=6379
         REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
-        EOF
-        "
+        EOF        "
 
     - name: Set permissions
       run: |
@@ -144,20 +143,68 @@ jobs:
           sudo chmod -R 775 /opt/mapit/current/public
         "
 
-    - name: Deploy with Docker Compose
+    - name: Deploy with Docker Compose (HTTP first)
       run: |
         ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }} "
           cd /opt/mapit/current
           sudo docker compose -f docker-compose.production.yml down || true
-          sudo docker compose -f docker-compose.production.yml up -d --build
+          sudo docker compose -f docker-compose.production.yml up -d --build nginx php mysql redis
         "
 
-    - name: Wait for services to start
+    - name: Wait for HTTP services to start
       run: |
         ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }} "
-          echo 'Waiting for services to start...'
-          sleep 30
+          echo 'Waiting for HTTP services to start...'
+          sleep 45
           sudo docker compose -f /opt/mapit/current/docker-compose.production.yml ps
+        "
+
+    - name: Test HTTP connectivity
+      run: |
+        echo "Testing HTTP connectivity..."
+        sleep 30
+        if curl -f -s -m 10 http://${{ secrets.PRODUCTION_HOST }}/ > /dev/null; then
+          echo "✅ HTTP site is accessible"
+        else
+          echo "❌ HTTP site is not accessible - checking logs..."
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }} "sudo docker logs mapit_nginx_prod --tail 20"
+        fi
+
+    - name: Setup SSL certificates
+      run: |
+        ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }} "
+          cd /opt/mapit/current
+          
+          # Make sure domain points to this server first
+          echo 'Checking if domain points to this server...'
+          DOMAIN_IP=\$(dig +short mapitedu.nl | tail -n1)
+          SERVER_IP=\$(curl -s ifconfig.me)
+          
+          if [ \"\$DOMAIN_IP\" = \"\$SERVER_IP\" ]; then
+            echo '✅ Domain points to this server, proceeding with SSL setup'
+            
+            # Get SSL certificates using certbot
+            sudo docker compose -f docker-compose.production.yml run --rm certbot
+            
+            # Check if certificates were created
+            if sudo docker volume inspect mapit_certbot_conf >/dev/null 2>&1; then
+              echo '✅ SSL certificates obtained'
+              
+              # Switch to HTTPS configuration
+              sudo cp docker/production/nginx/https.conf /tmp/https-nginx.conf
+              sudo docker cp /tmp/https-nginx.conf mapit_nginx_prod:/etc/nginx/conf.d/default.conf
+              
+              # Reload nginx with HTTPS config
+              sudo docker exec mapit_nginx_prod nginx -t && sudo docker exec mapit_nginx_prod nginx -s reload
+              
+              echo '🚀 HTTPS is now active!'
+            else
+              echo '⚠️ SSL certificate setup failed, continuing with HTTP'
+            fi
+          else
+            echo '⚠️ Domain does not point to this server yet (Domain: $DOMAIN_IP, Server: $SERVER_IP)'
+            echo '   Please update your DNS settings and run deployment again for SSL'
+          fi
         "
 
     - name: Health Check

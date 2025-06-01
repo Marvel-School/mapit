@@ -29,13 +29,24 @@ services:
       - "443:443"
     volumes:
       - ./docker/production/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./docker/production/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./docker/production/nginx/http-only.conf:/etc/nginx/conf.d/default.conf:ro
       - ./storage/logs/nginx:/var/log/nginx
+      - certbot_www:/var/www/certbot:ro
+      - certbot_conf:/etc/nginx/ssl:ro
     networks:
       - mapit_network
     depends_on:
       - php
     restart: unless-stopped
+
+  # Certbot for SSL certificates
+  certbot:
+    image: certbot/certbot:latest
+    container_name: mapit_certbot
+    volumes:
+      - certbot_www:/var/www/certbot
+      - certbot_conf:/etc/letsencrypt
+    command: certonly --webroot --webroot-path=/var/www/certbot --email admin@mapitedu.nl --agree-tos --no-eff-email -d mapitedu.nl -d www.mapitedu.nl
 
   # MySQL Database
   mysql:
@@ -67,6 +78,10 @@ volumes:
   mysql_data:
     driver: local
   redis_data:
+    driver: local
+  certbot_www:
+    driver: local
+  certbot_conf:
     driver: local
 
 networks:

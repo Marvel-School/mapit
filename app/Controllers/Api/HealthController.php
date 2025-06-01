@@ -50,10 +50,8 @@ class HealthController extends Controller
                     'message' => 'Redis connection failed: ' . $e->getMessage()
                 ];
             }
-        }
-
-        // Storage health check
-        $storageDir = __DIR__ . '/../../storage';
+        }        // Storage health check
+        $storageDir = __DIR__ . '/../../../storage';
         if (is_writable($storageDir)) {
             $health['checks']['storage'] = [
                 'status' => 'healthy',
@@ -68,7 +66,7 @@ class HealthController extends Controller
         }
 
         // Log directory health check
-        $logDir = __DIR__ . '/../../logs';
+        $logDir = __DIR__ . '/../../../logs';
         if (is_writable($logDir)) {
             $health['checks']['logs'] = [
                 'status' => 'healthy',

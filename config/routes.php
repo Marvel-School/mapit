@@ -7,6 +7,9 @@
  * Each route consists of a URI pattern, a controller, and an action.
  */
 
+// Health check endpoint for production monitoring
+$this->get('health', 'Api\\HealthController', 'check');
+
 // Home routes
 $this->get('', 'HomeController', 'index');
 $this->get('home', 'HomeController', 'index');

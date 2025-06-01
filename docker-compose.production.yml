@@ -1,0 +1,168 @@
+services:
+  # PHP Application
+  php:
+    image: ghcr.io/${{ github.repository }}:latest
+    container_name: mapit_php_prod
+    environment:
+      TZ: Europe/Amsterdam
+    volumes:
+      - ./storage:/var/www/html/storage
+      - ./logs:/var/www/html/logs
+      - /opt/mapit/shared/.env:/var/www/html/.env:ro
+    networks:
+      - mapit_network
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Nginx Web Server
+  nginx:
+    image: nginx:alpine
+    container_name: mapit_nginx_prod
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+      - ./logs/nginx:/var/log/nginx
+    networks:
+      - mapit_network
+    depends_on:
+      - php
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # MySQL Database
+  mysql:
+    image: mysql:8.0
+    container_name: mapit_mysql_prod
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MYSQL_DATABASE: mapit_production
+      MYSQL_USER: mapit_prod_user
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      TZ: Europe/Amsterdam
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./mysql/my.cnf:/etc/mysql/conf.d/custom.cnf:ro
+      - ./backups:/backups
+    networks:
+      - mapit_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD}"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    command: --default-authentication-plugin=mysql_native_password
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: mapit_redis_prod
+    volumes:
+      - redis_data:/data
+      - ./redis/redis.conf:/etc/redis/redis.conf:ro
+    networks:
+      - mapit_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    command: redis-server /etc/redis/redis.conf
+
+  # Certbot for SSL certificates
+  certbot:
+    image: certbot/certbot
+    container_name: mapit_certbot
+    volumes:
+      - ./ssl/certbot/conf:/etc/letsencrypt
+      - ./ssl/certbot/www:/var/www/certbot
+      - ./ssl/certbot/logs:/var/log/letsencrypt
+    command: certonly --webroot --webroot-path=/var/www/certbot --email admin@mapitedu.nl --agree-tos --no-eff-email -d mapitedu.nl -d www.mapitedu.nl
+    depends_on:
+      - nginx
+
+  # Backup service
+  backup:
+    image: alpine:latest
+    container_name: mapit_backup
+    volumes:
+      - mysql_data:/data/mysql:ro
+      - ./backups:/backups
+      - ./scripts:/scripts:ro
+    networks:
+      - mapit_network
+    depends_on:
+      - mysql
+    restart: "no"
+    entrypoint: ["sh", "/scripts/backup.sh"]
+
+  # Monitoring with Prometheus
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: mapit_prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    networks:
+      - mapit_network
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+
+  # Log aggregation with Grafana
+  grafana:
+    image: grafana/grafana:latest
+    container_name: mapit_grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    networks:
+      - mapit_network
+    restart: unless-stopped
+
+volumes:
+  mysql_data:
+    driver: local
+  redis_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+
+networks:
+  mapit_network:
+    driver: bridge
+    name: mapit_prod_network

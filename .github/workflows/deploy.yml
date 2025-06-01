@@ -128,12 +128,11 @@ jobs:
         REDIS_CACHE_TTL=3600
 
         # Admin Settings
-        ADMIN_EMAIL=${{ secrets.ADMIN_EMAIL || 'admin@mapitedu.nl' }}
-
-        # Redis Configuration
+        ADMIN_EMAIL=${{ secrets.ADMIN_EMAIL || 'admin@mapitedu.nl' }}        # Redis Configuration
         REDIS_HOST=redis
         REDIS_PORT=6379
-        REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}        EOF
+        REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
+        EOF
         "
 
     - name: Set permissions
@@ -143,7 +142,9 @@ jobs:
           sudo chmod -R 755 /opt/mapit/current
           sudo chmod -R 775 /opt/mapit/current/storage
           sudo chmod -R 775 /opt/mapit/current/public
-        "    - name: Deploy with Docker Compose
+        "
+
+    - name: Deploy with Docker Compose
       run: |
         ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }} "
           cd /opt/mapit/current

@@ -14,40 +14,24 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Setup SSH Key (Alternative Method)
+    - name: Setup SSH Key
       run: |
         mkdir -p ~/.ssh
-        chmod 700 ~/.ssh
-        # Write SSH private key using base64 to avoid special character issues
-        echo "${{ secrets.SSH_PRIVATE_KEY }}" | tr -d '\r' > ~/.ssh/id_rsa
+        cat > ~/.ssh/id_rsa << 'EOF'
+        ${{ secrets.SSH_PRIVATE_KEY }}
+        EOF
         chmod 600 ~/.ssh/id_rsa
-        
-        # Add server to known hosts
-        ssh-keyscan -H ${{ secrets.PRODUCTION_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
-        
-        # Verify key format
-        echo "🔍 SSH Key validation:"
-        if [[ $(head -1 ~/.ssh/id_rsa) == "-----BEGIN"* ]]; then
-          echo "✅ SSH key starts with proper header"
-        else
-          echo "❌ SSH key missing proper header"
-          echo "First line: $(head -1 ~/.ssh/id_rsa)"
-        fi
-        
-        if [[ $(tail -1 ~/.ssh/id_rsa) == "-----END"* ]]; then
-          echo "✅ SSH key ends with proper footer"
-        else
-          echo "❌ SSH key missing proper footer"
-          echo "Last line: $(tail -1 ~/.ssh/id_rsa)"
-        fi
-        
-        # Test if key is readable
-        ssh-keygen -l -f ~/.ssh/id_rsa && echo "✅ SSH key is valid" || echo "❌ SSH key validation failed"
+        chmod 700 ~/.ssh
+        ssh-keyscan -H ${{ secrets.PRODUCTION_HOST }} >> ~/.ssh/known_hosts
+        # Debug: Check key format
+        echo "SSH key first line:"
+        head -1 ~/.ssh/id_rsa
+        echo "SSH key last line:"
+        tail -1 ~/.ssh/id_rsa
 
     - name: Test SSH connection
       run: |
-        echo "🔐 Testing SSH connection to ${{ secrets.PRODUCTION_HOST }}..."
-        ssh -vvv -o StrictHostKeyChecking=no -o ConnectTimeout=30 -o BatchMode=yes ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }} "echo 'SSH connection successful'"
+        ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }} "echo 'SSH connection successful'"
 
     - name: Create deployment directory
       run: |
@@ -93,15 +77,15 @@ jobs:
 
         # Mail Configuration
         MAIL_DRIVER=smtp
-        MAIL_HOST=${{ secrets.MAIL_HOST || 'localhost' }}
-        MAIL_PORT=${{ secrets.MAIL_PORT || '587' }}
-        MAIL_USERNAME=${{ secrets.MAIL_USERNAME || '' }}
-        MAIL_PASSWORD=${{ secrets.MAIL_PASSWORD || '' }}
+        MAIL_HOST=${{ secrets.MAIL_HOST }}
+        MAIL_PORT=${{ secrets.MAIL_PORT }}
+        MAIL_USERNAME=${{ secrets.MAIL_USERNAME }}
+        MAIL_PASSWORD=${{ secrets.MAIL_PASSWORD }}
         MAIL_ENCRYPTION=tls
 
         # API Keys
         GOOGLE_MAPS_API_KEY=${{ secrets.GOOGLE_MAPS_API_KEY }}
-        WEATHER_API_KEY=${{ secrets.WEATHER_API_KEY || '' }}
+        WEATHER_API_KEY=${{ secrets.WEATHER_API_KEY }}
 
         # Security
         JWT_SECRET=${{ secrets.JWT_SECRET }}
@@ -128,7 +112,7 @@ jobs:
         REDIS_CACHE_TTL=3600
 
         # Admin Settings
-        ADMIN_EMAIL=${{ secrets.ADMIN_EMAIL || 'admin@mapitedu.nl' }}
+        ADMIN_EMAIL=${{ secrets.ADMIN_EMAIL }}
 
         # Redis Configuration
         REDIS_HOST=redis

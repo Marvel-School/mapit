@@ -42,9 +42,7 @@ jobs:
         fi
         
         # Test if key is readable
-        ssh-keygen -l -f ~/.ssh/id_rsa && echo "✅ SSH key is valid" || echo "❌ SSH key validation failed"
-
-    - name: Test SSH connection
+        ssh-keygen -l -f ~/.ssh/id_rsa && echo "✅ SSH key is valid" || echo "❌ SSH key validation failed"    - name: Test SSH connection
       run: |
         echo "🔐 Testing SSH connection to ${{ secrets.PRODUCTION_HOST }}..."
         ssh -vvv -o StrictHostKeyChecking=no -o ConnectTimeout=30 -o BatchMode=yes ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }} "echo 'SSH connection successful'"
@@ -53,8 +51,9 @@ jobs:
       run: |
         ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }} "
           sudo mkdir -p /opt/mapit/current
-          sudo mkdir -p /opt/mapit/shared/storage
-          sudo mkdir -p /opt/mapit/shared/logs
+          sudo mkdir -p /opt/mapit/current/storage/logs
+          sudo mkdir -p /opt/mapit/current/storage/uploads
+          sudo mkdir -p /opt/mapit/current/docker/production/ssl
           sudo chown -R deploy:deploy /opt/mapit
         "
 
@@ -133,9 +132,10 @@ jobs:
         # Redis Configuration
         REDIS_HOST=redis
         REDIS_PORT=6379
-        REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
-        EOF
-        "    - name: Set permissions
+        REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}        EOF
+        "
+
+    - name: Set permissions
       run: |
         ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }} "
           sudo chown -R www-data:www-data /opt/mapit/current

@@ -14,22 +14,20 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Setup SSH
-      uses: webfactory/ssh-agent@v0.8.0
-      with:
-        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-
-    - name: Add server to known hosts
+    - name: Setup SSH Key
       run: |
+        mkdir -p ~/.ssh
+        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
         ssh-keyscan -H ${{ secrets.PRODUCTION_HOST }} >> ~/.ssh/known_hosts
 
     - name: Test SSH connection
       run: |
-        ssh ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }} "echo 'SSH connection successful'"
+        ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }} "echo 'SSH connection successful'"
 
     - name: Create deployment directory
       run: |
-        ssh ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }} "
+        ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }} "
           sudo mkdir -p /opt/mapit/current
           sudo mkdir -p /opt/mapit/shared/storage
           sudo mkdir -p /opt/mapit/shared/logs
@@ -39,6 +37,7 @@ jobs:
     - name: Copy application files
       run: |
         rsync -avz --delete \
+          -e 'ssh -o StrictHostKeyChecking=no' \
           --exclude='.git' \
           --exclude='node_modules' \
           --exclude='vendor' \
@@ -48,7 +47,7 @@ jobs:
 
     - name: Create production environment file
       run: |
-        ssh ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }} "
+        ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }} "
           cat > /opt/mapit/current/.env << 'EOF'
         # Production Environment Configuration
         APP_ENV=production
@@ -116,7 +115,7 @@ jobs:
 
     - name: Set permissions
       run: |
-        ssh ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }} "
+        ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }} "
           sudo chown -R www-data:www-data /opt/mapit/current
           sudo chmod -R 755 /opt/mapit/current
           sudo chmod -R 775 /opt/mapit/current/storage
@@ -125,7 +124,7 @@ jobs:
 
     - name: Deploy with Docker Compose
       run: |
-        ssh ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }} "
+        ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }} "
           cd /opt/mapit/current
           sudo docker compose -f docker-compose.production.yml down || true
           sudo docker compose -f docker-compose.production.yml up -d
@@ -133,7 +132,7 @@ jobs:
 
     - name: Wait for services to start
       run: |
-        ssh ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }} "
+        ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }} "
           echo 'Waiting for services to start...'
           sleep 30
           sudo docker compose -f /opt/mapit/current/docker-compose.production.yml ps

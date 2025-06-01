@@ -43,7 +43,7 @@ RUN chown -R www-data:www-data /var/www/html \
     && chmod -R 777 /var/www/html/database
 
 # Configure Apache
-RUN a2enmod rewrite
+RUN a2enmod rewrite headers
 COPY docker/apache-config.conf /etc/apache2/sites-available/000-default.conf
 
 # Create storage directories

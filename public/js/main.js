@@ -1342,11 +1342,123 @@ function initializeDestinationSelect(selectElement) {
 }
 
 /**
- * Utility function to get Google Maps API key from meta tag
- * This function is used by tests and other components that need to access the API key
- * @returns {string|null} The Google Maps API key or null if not found
+ * Public map functionality - simplified version for public destinations only
+ * This handles ONLY public destinations without user-specific features
+ * @param {google.maps.Map} map - The Google Maps instance
+ * @param {Array} destinations - Array of public destination objects
  */
-function getGoogleMapsApiKey() {
-    const metaTag = document.querySelector('meta[name="google-maps-api-key"]');
-    return metaTag ? metaTag.getAttribute('content') : null;
+function addDestinationsToMap(map, destinations) {
+    if (!destinations || destinations.length === 0) {
+        console.log('No destinations to add to public map');
+        return;
+    }
+
+    console.log(`Adding ${destinations.length} public destinations to map...`);
+    const bounds = new google.maps.LatLngBounds();
+    let markersAdded = 0;
+    
+    // Add markers for public destinations only
+    destinations.forEach((dest, index) => {
+        // Skip destinations with invalid coordinates
+        if (!dest.latitude || !dest.longitude) {
+            console.warn('Skipping destination with invalid coordinates:', dest);
+            return;
+        }
+        
+        const position = {
+            lat: parseFloat(dest.latitude), 
+            lng: parseFloat(dest.longitude)
+        };
+        
+        // Skip if parsing failed
+        if (isNaN(position.lat) || isNaN(position.lng)) {
+            console.warn('Skipping destination with invalid coordinate format:', dest);
+            return;
+        }
+        
+        // For public map, only show featured or public markers (no user status)
+        const markerType = dest.featured ? 'featured' : 'public';
+        
+        // Create simple marker for public destinations
+        createPublicMarker(dest, position, map, markerType, bounds, () => {
+            markersAdded++;
+            
+            // When all markers are added, adjust map bounds
+            if (markersAdded === destinations.length && markersAdded > 0) {
+                map.fitBounds(bounds);
+                
+                // Prevent zooming in too much
+                const listener = google.maps.event.addListener(map, 'idle', function() {
+                    const currentZoom = map.getZoom();
+                    if (currentZoom > 12) {
+                        map.setZoom(12);
+                    }
+                    google.maps.event.removeListener(listener);
+                });
+            }
+        });
+    });
+}
+
+/**
+ * Create a marker for public destinations (simplified, no user features)
+ * @param {Object} dest - Destination object
+ * @param {Object} position - Lat/lng position
+ * @param {google.maps.Map} map - Google Maps instance
+ * @param {string} markerType - Type of marker ('featured' or 'public')
+ * @param {google.maps.LatLngBounds} bounds - Map bounds
+ * @param {Function} onComplete - Completion callback
+ */
+function createPublicMarker(dest, position, map, markerType, bounds, onComplete) {
+    try {
+        const markerIcon = {
+            url: markerType === 'featured' ? '/images/markers/featured.svg' : '/images/markers/public.svg',
+            scaledSize: new google.maps.Size(32, 32)
+        };
+        
+        // Create marker with fallback
+        const marker = new google.maps.Marker({
+            position: position,
+            map: map,
+            title: dest.name,
+            icon: markerIcon
+        });
+        
+        // Add error handling for marker icon loading
+        marker.addListener('icon_changed', function() {
+            const img = new Image();
+            img.onerror = function() {
+                // Fallback to simple colored circle
+                const fallbackIcon = createEnhancedFallbackMarker(markerType);
+                marker.setIcon(fallbackIcon);
+            };
+            img.src = markerIcon.url;
+        });
+        
+        // Create info window for public viewing
+        const infoWindow = new google.maps.InfoWindow({
+            content: `
+                <div class="info-window">
+                    <h5>${dest.name}</h5>                    <p>${dest.description ? dest.description.substring(0, 100) + '...' : 'No description available'}</p>
+                    ${dest.featured ? '<span class="badge bg-warning mb-2"><i class="fas fa-star"></i> Featured</span>' : ''}
+                    <div class="mt-2">
+                        <a href="/destination/${dest.id}" class="btn btn-sm btn-primary">View Details</a>
+                    </div>
+                </div>
+            `
+        });
+        
+        // Add click listener
+        marker.addListener('click', () => {
+            infoWindow.open(map, marker);
+        });
+        
+        bounds.extend(position);
+        console.log(`Successfully added public marker for: ${dest.name}`);
+        
+    } catch (error) {
+        console.error('Error creating public marker:', error, dest);
+    }
+    
+    onComplete();
 }

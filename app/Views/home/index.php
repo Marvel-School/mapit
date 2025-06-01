@@ -62,7 +62,58 @@
                             <i class="fas fa-medal fa-2x"></i>
                         </div>
                         <h3 class="h5">Travel Badges</h3>
-                        <p class="card-text">Earn badges and track achievements as you explore new countries, continents and landmarks.</p>
+                        <p class="card-text">Earn badges and track achievements as you explore new countries, continents and landmarks.</p>                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="public-map-cta py-5 bg-light">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-md-6">
+                <h2 class="mb-3">Explore the World</h2>
+                <p class="lead text-muted mb-4">
+                    Discover amazing destinations shared by our travel community. Browse our interactive map 
+                    to find your next adventure or explore featured locations from around the globe.
+                </p>                <div class="d-flex gap-3">
+                    <?php if (isset($_SESSION['user_id'])): ?>
+                        <a href="/dashboard" class="btn btn-primary btn-lg">
+                            <i class="fas fa-tachometer-alt me-2"></i>
+                            My Dashboard
+                        </a>
+                        <a href="/destinations" class="btn btn-outline-primary btn-lg">
+                            <i class="fas fa-map-marker-alt me-2"></i>
+                            My Destinations
+                        </a>
+                    <?php else: ?>
+                        <a href="/map" class="btn btn-primary btn-lg">
+                            <i class="fas fa-map me-2"></i>
+                            Interactive Map
+                        </a>
+                        <a href="/featured" class="btn btn-outline-primary btn-lg">
+                            <i class="fas fa-star me-2"></i>
+                            Featured Places
+                        </a>
+                    <?php endif; ?>
+                </div>
+            </div>
+            <div class="col-md-6 text-center">
+                <div class="position-relative">
+                    <img src="/images/world-map.svg" alt="World Map Preview" class="img-fluid rounded shadow" style="max-height: 300px;">
+                    <div class="position-absolute top-50 start-50 translate-middle">
+                        <?php if (isset($_SESSION['user_id'])): ?>
+                            <a href="/dashboard" class="btn btn-primary btn-lg">
+                                <i class="fas fa-tachometer-alt me-2"></i>
+                                Go to Dashboard
+                            </a>
+                        <?php else: ?>
+                            <a href="/map" class="btn btn-primary btn-lg">
+                                <i class="fas fa-play me-2"></i>
+                                Explore Now
+                            </a>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>
@@ -94,7 +145,7 @@
                                 <?= htmlspecialchars($destination['city'] . ', ' . $destination['country']); ?>
                             </p>
                             <p class="card-text"><?= htmlspecialchars(substr($destination['description'] ?? '', 0, 100) . '...'); ?></p>
-                            <a href="/destinations/<?= $destination['id']; ?>" class="btn btn-outline-primary">View Details</a>
+                            <a href="/destination/<?= $destination['id']; ?>" class="btn btn-outline-primary">View Details</a>
                         </div>
                     </div>
                 </div>

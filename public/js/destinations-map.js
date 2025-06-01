@@ -59,30 +59,44 @@
             return;
         }
         
-        try {
-            // Check if the data is already available in the page
-            if (typeof userDestinations !== 'undefined' && typeof publicDestinations !== 'undefined') {
-                const allDestinations = [...userDestinations, ...publicDestinations];
+        try {            // Check if the data is already available in the page
+            if (typeof window.publicDestinations !== 'undefined' || typeof window.userDestinations !== 'undefined') {
+                const userDests = window.userDestinations || [];
+                const publicDests = window.publicDestinations || [];
+                const featuredDests = window.featuredDestinations || [];
                 
-                // Add destinations to map if function is available
+                // Combine all destinations for the map
+                const allDestinations = [...userDests, ...publicDests, ...featuredDests];
+                
+                console.log(`Loading ${allDestinations.length} destinations to map:`, {
+                    user: userDests.length,
+                    public: publicDests.length, 
+                    featured: featuredDests.length
+                });
+                  // Add destinations to map if function is available
                 if (typeof addDestinationsToMap === 'function') {
                     addDestinationsToMap(window.destinationsMap, allDestinations);
+                } else {
+                    console.warn('addDestinationsToMap function not found');
                 }
                 
                 // Enable interactive map clicking
                 if (typeof enableInteractiveMapClicking === 'function') {
                     enableInteractiveMapClicking(window.destinationsMap);
                 } else {
-                    // Fallback: add click listener directly
-                    window.destinationsMap.addListener('click', function(event) {
-                        if (typeof handleMapClick === 'function') {
-                            handleMapClick(event.latLng, window.destinationsMap);
-                        }
-                    });
-                }
-            } else {
+                    // Fallback: add click listener directly only for authenticated users
+                    if (!window.isPublicMap) {
+                        window.destinationsMap.addListener('click', function(event) {
+                            if (typeof handleMapClick === 'function') {
+                                handleMapClick(event.latLng, window.destinationsMap);
+                            }
+                        });
+                    }
+                }} else {
                 // Fetch data via AJAX if not available
-                fetch('/api/destinations')
+                const apiEndpoint = window.isPublicMap ? '/api/public/destinations' : '/api/destinations';
+                
+                fetch(apiEndpoint)
                     .then(response => response.json())
                     .then(data => {
                         let destinations = [];
@@ -98,10 +112,10 @@
                             addDestinationsToMap(window.destinationsMap, destinations);
                         }
                         
-                        // Enable interactive map clicking
-                        if (typeof enableInteractiveMapClicking === 'function') {
+                        // Enable interactive map clicking only for authenticated users
+                        if (!window.isPublicMap && typeof enableInteractiveMapClicking === 'function') {
                             enableInteractiveMapClicking(window.destinationsMap);
-                        } else {
+                        } else if (!window.isPublicMap) {
                             window.destinationsMap.addListener('click', function(event) {
                                 if (typeof handleMapClick === 'function') {
                                     handleMapClick(event.latLng, window.destinationsMap);
@@ -112,10 +126,10 @@
                     .catch(error => {
                         console.warn('Failed to load destinations:', error);
                         
-                        // Still enable clicking even if we can't load destinations
-                        if (typeof enableInteractiveMapClicking === 'function') {
+                        // Still enable clicking for authenticated users even if we can't load destinations
+                        if (!window.isPublicMap && typeof enableInteractiveMapClicking === 'function') {
                             enableInteractiveMapClicking(window.destinationsMap);
-                        } else {
+                        } else if (!window.isPublicMap) {
                             window.destinationsMap.addListener('click', function(event) {
                                 if (typeof handleMapClick === 'function') {
                                     handleMapClick(event.latLng, window.destinationsMap);

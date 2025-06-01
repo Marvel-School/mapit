@@ -11,15 +11,17 @@ class Database
     private $connection;
     private $statement;
     private $error;    
-    
-    private function __construct()
+      private function __construct()
     {
+        // Ensure environment variables are loaded before database connection
+        $this->loadEnvironmentIfNeeded();
+        
         // Initialize logger
         $logFile = __DIR__ . '/../../storage/logs/database.log';
         Logger::setLogFile($logFile);
         
         // Get database configuration
-        $dbHost = getenv('DB_HOST') ?: 'mysql';        
+        $dbHost = getenv('DB_HOST') ?: 'localhost';        
         $dbName = getenv('DB_DATABASE') ?: 'mapit';
         $dbUser = getenv('DB_USERNAME') ?: 'mapit_user';
         $dbPass = getenv('DB_PASSWORD') ?: 'mapit_password';
@@ -58,6 +60,41 @@ class Database
         }
     }
     
+    /**
+     * Load environment variables from .env file if they haven't been loaded already
+     * 
+     * @return void
+     */
+    private function loadEnvironmentIfNeeded()
+    {
+        // Check if environment variables are already loaded
+        if (getenv('DB_HOST') === false) {
+            $envFile = __DIR__ . '/../../.env';
+            if (file_exists($envFile)) {
+                $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+                foreach ($lines as $line) {
+                    if (strpos(trim($line), '#') === 0) {
+                        continue; // Skip comments
+                    }
+                    
+                    if (strpos($line, '=') !== false) {
+                        list($key, $value) = explode('=', $line, 2);
+                        $key = trim($key);
+                        $value = trim($value);
+                        
+                        // Remove quotes if present
+                        if (preg_match('/^["\'].*["\']$/', $value)) {
+                            $value = substr($value, 1, -1);
+                        }
+                        
+                        $_ENV[$key] = $value;
+                        putenv($key . '=' . $value);
+                    }
+                }
+            }
+        }
+    }
+
     // Singleton pattern - Get database instance
     public static function getInstance()
     {
@@ -308,9 +345,7 @@ class Database
             throw new \Exception('Database connection failed: ' . $this->error);
         }
         return $this->connection->commit();
-    }
-
-    /**
+    }    /**
      * Rollback transaction
      * 
      * @return bool
@@ -320,7 +355,6 @@ class Database
     {
         if ($this->connection === null) {
             throw new \Exception('Database connection failed: ' . $this->error);
-        }
-        return $this->connection->rollBack();
+        }        return $this->connection->rollBack();
     }
 }

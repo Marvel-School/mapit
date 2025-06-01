@@ -30,10 +30,25 @@
                 <span class="navbar-toggler-icon"></span>
             </button>
             
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav me-auto">
+            <div class="collapse navbar-collapse" id="navbarNav">                <ul class="navbar-nav me-auto">
                     <li class="nav-item">
                         <a class="nav-link" href="/">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <?php if (isset($_SESSION['user_id'])): ?>
+                            <a class="nav-link" href="/dashboard">
+                                <i class="fas fa-map me-1"></i>
+                                My Dashboard
+                            </a>
+                        <?php else: ?>
+                            <a class="nav-link" href="/map">
+                                <i class="fas fa-map me-1"></i>
+                                Explore Map
+                            </a>
+                        <?php endif; ?>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/featured">Featured Places</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="/about">About</a>
@@ -41,13 +56,9 @@
                     <li class="nav-item">
                         <a class="nav-link" href="/contact">Contact</a>
                     </li>
-                    
-                    <?php if (isset($_SESSION['user_id'])): ?>
+                      <?php if (isset($_SESSION['user_id'])): ?>
                         <li class="nav-item">
-                            <a class="nav-link" href="/dashboard">Dashboard</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="/destinations">Destinations</a>
+                            <a class="nav-link" href="/destinations">My Destinations</a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link" href="/trips">My Trips</a>
@@ -162,6 +173,7 @@
     $cacheBust = file_exists(__DIR__ . '/../../../public/cache-bust.txt') ? trim(file_get_contents(__DIR__ . '/../../../public/cache-bust.txt')) : time();
     ?>
     <script src="/js/main.js?v=<?= $cacheBust; ?>"></script>
+    <script src="/js/destinations-map.js?v=<?= $cacheBust; ?>"></script>
       <!-- Google Maps API - Simple and Direct Loading -->
     <?php if (!empty($apiKey)): ?>
     <script async defer 

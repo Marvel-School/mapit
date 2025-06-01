@@ -55,6 +55,18 @@ $this->get('badges', 'BadgeController', 'index');
 $this->get('badges/{id}', 'BadgeController', 'show');
 $this->post('badges/mark-notifications-read', 'BadgeController', 'markNotificationsRead');
 
+// Public destination routes (no authentication required)
+$this->get('map', 'PublicDestinationController', 'map');
+$this->get('featured', 'PublicDestinationController', 'featured');
+$this->get('destination/{id}', 'PublicDestinationController', 'show');
+
+// Public API routes (no authentication required)
+$this->get('api/debug/test', 'Api\DebugController', 'test');
+$this->get('api/simple/destinations', 'Api\SimpleApiController', 'destinations');
+$this->get('api/public/destinations', 'Api\PublicDestinationController', 'index');
+$this->get('api/public/destinations/featured', 'Api\PublicDestinationController', 'featured');
+$this->get('api/public/destinations/{id}', 'Api\PublicDestinationController', 'show');
+
 // API routes
 $this->post('api/auth/login', 'Api\AuthController', 'login');
 $this->post('api/auth/register', 'Api\AuthController', 'register');

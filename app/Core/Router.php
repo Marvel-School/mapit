@@ -122,28 +122,43 @@ class Router
      * @param string $uri
      * @param string $method
      * @return void
-     */
-    public function dispatch($uri, $method)
+     */    public function dispatch($uri, $method)
     {
         // Remove query strings
         $uri = $this->removeQueryStringVariables($uri);
+        
+        // DEBUG: Log what we're trying to match
+        error_log("ROUTER DEBUG: Trying to match URI: '{$uri}' with method: '{$method}'");
         
         // Match the route
         $route = $this->match($uri, $method);
         
         if ($route) {
+            error_log("ROUTER DEBUG: Route found - Controller: {$route['controller']}, Action: {$route['action']}");
+            
             $controller = "App\\Controllers\\{$route['controller']}";
             $action = $route['action'];
             $params = $route['params'] ?? [];
             
+            error_log("ROUTER DEBUG: Full controller class: {$controller}");
+            error_log("ROUTER DEBUG: Params: " . json_encode($params));
+            
             if (class_exists($controller)) {
+                error_log("ROUTER DEBUG: Controller class exists");
                 $controller_instance = new $controller();
                 
                 if (method_exists($controller_instance, $action)) {
-                    call_user_func_array([$controller_instance, $action], $params);
+                    error_log("ROUTER DEBUG: Action method exists, calling with params: " . json_encode(array_values($params)));
+                    call_user_func_array([$controller_instance, $action], array_values($params));
                     return;
+                } else {
+                    error_log("ROUTER DEBUG: Action method does NOT exist");
                 }
+            } else {
+                error_log("ROUTER DEBUG: Controller class does NOT exist");
             }
+        } else {
+            error_log("ROUTER DEBUG: No route found for URI: '{$uri}'");
         }
         
         // Route not found

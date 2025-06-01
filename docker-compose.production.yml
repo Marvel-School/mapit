@@ -12,7 +12,7 @@ services:
     volumes:
       - ./storage:/var/www/html/storage
       - ./storage/logs:/var/www/html/logs
-      - ./.env:/var/www/html/.env:ro
+      - ./.env:/var/www/html/.env
     networks:
       - mapit_network
     depends_on:

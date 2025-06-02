@@ -4,6 +4,7 @@ namespace App\Controllers\Api;
 
 use App\Core\Controller;
 use App\Core\Validator;
+use App\Core\Database;
 
 class AuthController extends Controller
 {
@@ -133,13 +134,18 @@ class AuthController extends Controller
                     'role' => $user['role'],
                     'name' => $user['name'] ?? ''
                 ]
-            ]);
-
-        } catch (\Exception $e) {
-            error_log("API login error: " . $e->getMessage());
+            ]);        } catch (\Exception $e) {
+            error_log("API login error: " . $e->getMessage() . " | File: " . $e->getFile() . " | Line: " . $e->getLine() . " | Trace: " . $e->getTraceAsString());
+            
+            // In development, show the actual error
+            $debugMessage = 'Internal server error';
+            if (getenv('APP_DEBUG') === 'true' || getenv('APP_ENV') === 'development') {
+                $debugMessage = $e->getMessage();
+            }
+            
             $this->cleanJsonResponse([
                 'success' => false,
-                'message' => 'Internal server error',
+                'message' => $debugMessage,
                 'error_code' => 'INTERNAL_ERROR'
             ], 500);
         }
@@ -248,14 +254,50 @@ class AuthController extends Controller
                     'username' => $username,
                     'email' => $email
                 ]
-            ], 201);
-
-        } catch (\Exception $e) {
-            error_log("API registration error: " . $e->getMessage());
+            ], 201);        } catch (\Exception $e) {
+            error_log("API registration error: " . $e->getMessage() . " | File: " . $e->getFile() . " | Line: " . $e->getLine() . " | Trace: " . $e->getTraceAsString());
+            
+            // In development, show the actual error
+            $debugMessage = 'Internal server error';
+            if (getenv('APP_DEBUG') === 'true' || getenv('APP_ENV') === 'development') {
+                $debugMessage = $e->getMessage();
+            }
+            
             $this->cleanJsonResponse([
                 'success' => false,
-                'message' => 'Internal server error',
+                'message' => $debugMessage,
                 'error_code' => 'INTERNAL_ERROR'
+            ], 500);
+        }
+    }
+
+    /**
+     * Simple health check endpoint to test database connectivity
+     * 
+     * @return void
+     */
+    public function healthCheck()
+    {
+        try {
+            $db = Database::getInstance();
+            $db->query("SELECT 1 as test");
+            $result = $db->single();
+            
+            $this->cleanJsonResponse([
+                'success' => true,
+                'message' => 'Database connection successful',
+                'data' => [
+                    'database' => $result ? 'connected' : 'failed',
+                    'timestamp' => date('Y-m-d H:i:s'),
+                    'environment' => getenv('APP_ENV') ?: 'unknown'
+                ]
+            ], 200);
+            
+        } catch (\Exception $e) {
+            $this->cleanJsonResponse([
+                'success' => false,
+                'message' => 'Database connection failed: ' . $e->getMessage(),
+                'error_code' => 'DATABASE_ERROR'
             ], 500);
         }
     }

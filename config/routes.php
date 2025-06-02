@@ -71,6 +71,7 @@ $this->get('api/public/destinations/featured', 'Api\PublicDestinationController'
 $this->get('api/public/destinations/{id}', 'Api\PublicDestinationController', 'show');
 
 // API routes
+$this->get('api/health', 'Api\AuthController', 'healthCheck');
 $this->post('api/auth/login', 'Api\AuthController', 'login');
 $this->post('api/auth/register', 'Api\AuthController', 'register');
 

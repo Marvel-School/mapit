@@ -1,78 +1,157 @@
-# MapIt Development Workflow
+# Development Workflow Guide
 
-## Current Setup Status
-✅ **Local Development**: Ready (development branch)  
-🔄 **Production Deployment**: In Progress (main branch → 142.93.136.145)  
-🌐 **Domain**: mapitedu.nl  
+This guide explains how to work with the MapIt project using a proper Git workflow that separates development from production.
+
+## Branch Structure
+
+- **`main`** - Production branch (auto-deploys to production)
+- **`development`** - Development branch (for local development and testing)
+- **`feature/*`** - Feature branches (for specific features)
 
 ## Development Workflow
 
-### Local Development (Development Branch)
-1. **Switch to development branch**:
-   ```bash
-   git checkout development
-   ```
+### 1. Start Development Work
 
-2. **Start local development environment**:
-   ```bash
-   docker-compose up -d
-   ```
+```bash
+# Switch to development branch
+git checkout development
 
-3. **Make your changes** to the codebase
+# Pull latest changes
+git pull origin development
 
-4. **Test locally** at http://localhost
+# Create a feature branch (optional)
+git checkout -b feature/your-feature-name
+```
 
-5. **Commit your changes**:
-   ```bash
-   git add .
-   git commit -m "Your feature description"
-   ```
+### 2. Local Development
 
-### Deploy to Production (Main Branch)
-1. **Merge development to main**:
-   ```bash
-   git checkout main
-   git merge development
-   ```
+Start your local development environment:
 
-2. **Push to trigger production deployment**:
-   ```bash
-   git push origin main
-   ```
+```bash
+# Start Docker containers
+docker-compose up -d
 
-3. **Monitor deployment**:
-   - GitHub Actions will automatically deploy to 142.93.136.145
-   - Check https://github.com/Marvel-School/mapit/actions for status
-   - Site will be available at http://mapitedu.nl (and https when SSL is configured)
+# Check application at http://localhost
+```
 
-## Current Deployment Status
+The development branch includes:
+- Local Docker development environment
+- Development debugging tools
+- Test files and utilities
+- Extended .gitignore for development files
 
-### Production Server: 142.93.136.145
-- ✅ **Server Connectivity**: Reachable via SSH (port 22)
-- ✅ **DNS Configuration**: mapitedu.nl → 142.93.136.145
-- 🔄 **HTTP/HTTPS Access**: Currently being fixed (ports 80/443)
-- 🔄 **Docker Services**: GitHub Actions deployment in progress
+### 3. Testing Your Changes
 
-### Recent Fixes Applied
-- ✅ Fixed GitHub Actions workflow syntax errors
-- ✅ Fixed Docker Compose configuration issues
-- ✅ Improved nginx container configuration
-- ✅ Added better deployment logging and error handling
+- Test thoroughly in your local environment
+- Verify all features work as expected
+- Check for any breaking changes
+- Test different browsers and screen sizes
 
-### Next Steps
-1. Monitor current deployment at: https://github.com/Marvel-School/mapit/actions
-2. Once deployment completes, test HTTP access
-3. Configure SSL/HTTPS certificates
-4. Verify full production functionality
+### 4. Committing Changes
+
+```bash
+# Stage your changes
+git add .
+
+# Commit with descriptive message
+git commit -m "Add feature: descriptive message about what you built"
+
+# Push to development branch
+git push origin development
+```
+
+### 5. Deploying to Production
+
+When your changes are ready for production:
+
+```bash
+# Switch to main branch
+git checkout main
+
+# Merge development changes
+git merge development
+
+# Push to main (triggers automatic deployment)
+git push origin main
+```
+
+**⚠️ Important:** Pushing to `main` immediately triggers production deployment!
+
+## File Organization
+
+### Development Branch Contains:
+- `docker-compose.yml` - Local development environment
+- `docker/` - Development Docker configurations
+- Development debugging tools
+- Test files and utilities
+
+### Main Branch Contains:
+- `docker-compose.production.yml` - Production configuration
+- `.github/workflows/deploy.yml` - Deployment automation
+- `PRODUCTION_DEPLOYMENT_GUIDE.md` - Production setup guide
+- Clean, production-ready code only
+
+## Best Practices
+
+1. **Never commit directly to main** - Always work in development first
+2. **Test thoroughly** - Make sure everything works locally before merging
+3. **Use descriptive commit messages** - Help others understand your changes
+4. **Keep commits focused** - One feature or fix per commit when possible
+5. **Pull before pushing** - Always pull latest changes before pushing
+
+## Emergency Hotfixes
+
+For urgent production fixes:
+
+```bash
+# Create hotfix branch from main
+git checkout main
+git checkout -b hotfix/urgent-fix
+
+# Make minimal fix
+# ... edit files ...
+
+# Commit and merge to main
+git add .
+git commit -m "Hotfix: describe the urgent fix"
+git checkout main
+git merge hotfix/urgent-fix
+git push origin main
+
+# Merge back to development
+git checkout development
+git merge main
+git push origin development
+```
+
+## Local Environment
+
+Your local environment (development branch) includes:
+- PHP 8.1 with FPM
+- Nginx web server
+- MySQL 8.0 database
+- Redis for caching
+- All development tools and debugging features
+
+Access your local application at: `http://localhost`
 
 ## Troubleshooting
 
-### If deployment fails:
-1. Check GitHub Actions logs
-2. Verify all required secrets are set in GitHub repository settings
-3. Check server logs via SSH if needed
+### Common Issues:
 
-### If local development issues:
-1. Rebuild containers: `docker-compose up -d --build`
-2. Check container logs: `docker-compose logs`
-3. Verify port availability (80, 3306, 6379)
+1. **502 Bad Gateway**: Restart containers with `docker-compose restart`
+2. **Database connection issues**: Check MySQL container logs
+3. **Permission issues**: Ensure proper file permissions in storage/
+
+### Getting Help:
+
+- Check container logs: `docker logs container_name`
+- Review application logs in `storage/logs/`
+- Check the development branch README for more details
+
+## Production Monitoring
+
+After pushing to main:
+- Monitor GitHub Actions for deployment status
+- Check production health at: `https://your-domain.com/health`
+- Monitor application logs if issues occur

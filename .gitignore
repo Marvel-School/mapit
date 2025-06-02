@@ -1,13 +1,31 @@
-# Environment variables and sensitive configuration
+# Dependencies
+/vendor/
+/node_modules/
+/bower_components/
+
+# Environment files
 .env
 .env.local
+.env.*.local
 .env.production
-.env.development
-.env.test
-.env.*
-!.env.example
+.env.testing
 
-# VS Code files that might cause cache issues
+# Logs
+/storage/logs/*.log
+/storage/logs/*.txt
+!/storage/logs/.gitkeep
+
+# Cache
+/storage/cache/*
+!/storage/cache/.gitkeep
+
+# Uploads
+/storage/uploads/*
+!/storage/uploads/.gitkeep
+/public/uploads/*
+!/public/uploads/.gitkeep
+
+# IDE files
 .vscode/*
 !.vscode/settings.json
 !.vscode/tasks.json
@@ -17,6 +35,20 @@
 .vscode-upload.json
 .vscode/file-monitor.log
 .vscode/prevent-file-recreation.ps1
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Docker volumes and data
+docker-data/
+/mysql-data/
+
+# Database files
+*.sqlite
+*.db
+database/*.sqlite
+database/*.db
+!/database/.gitkeep
 
 # Local History for Visual Studio Code
 .history/
@@ -27,20 +59,10 @@
 *.swp
 *~.nib
 
-# Logs and databases (but allow schema files)
+# Logs and databases
 *.log
-storage/logs/*
-!storage/logs/.gitkeep
+*.sql
 *.sqlite
-
-# Backup files and directories (should never be in version control)
-backups/
-backup/
-*.backup
-*_backup*
-*.dump
-*.sql.gz
-*.sql.bz2
 
 # OS generated files
 .DS_Store
@@ -126,11 +148,3 @@ CLEANUP_SUCCESS.md
 scripts/*.php
 scripts/*.sh
 scripts/*.ps1
-
-# User-uploaded content (should never be in version control)
-public/images/destinations/*
-!public/images/destinations/.htaccess
-public/images/avatars/*
-!public/images/avatars/.htaccess
-uploads/
-uploaded/

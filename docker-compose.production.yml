@@ -1,6 +1,4 @@
-﻿version: '3.8'
-
-services:
+﻿services:
   # PHP Application
   php:
     build:
@@ -14,7 +12,7 @@ services:
       - ./storage/logs:/var/www/html/logs
       - ./.env:/var/www/html/.env
     networks:
-      - mapit_network
+      - prod_network
     depends_on:
       - mysql
       - redis
@@ -32,61 +30,58 @@ services:
       - certbot_www:/var/www/certbot
       - certbot_conf:/etc/nginx/ssl:ro
     networks:
-      - mapit_network
+      - prod_network
     depends_on:
       - php
     restart: unless-stopped
-    command: |
+    command: >
       sh -c "
-      cat > /etc/nginx/conf.d/default.conf << 'EOF'
-      server {
-          listen 80;
-          server_name mapitedu.nl www.mapitedu.nl;
-          root /var/www/html/public;
-          index index.php index.html;
-          
-          # Security headers
-          add_header X-Content-Type-Options nosniff;
-          add_header X-Frame-Options DENY;
-          add_header X-XSS-Protection \"1; mode=block\";
-          add_header Referrer-Policy \"strict-origin-when-cross-origin\";
-          
-          # PHP handling
-          location / {
-              try_files \$$uri \$$uri/ /index.php?\$$query_string;
-          }
-          
-          location ~ \.php\$$ {
-              fastcgi_pass php:9000;
-              fastcgi_index index.php;
-              include fastcgi_params;
-              fastcgi_param SCRIPT_FILENAME /var/www/html/public\$$fastcgi_script_name;
-              fastcgi_param PATH_INFO \$$fastcgi_path_info;
-              fastcgi_read_timeout 300;
-              fastcgi_buffer_size 128k;
-              fastcgi_buffers 4 256k;
-              fastcgi_busy_buffers_size 256k;
-          }
-          
-          # Security - deny access to hidden files
-          location ~ /\. {
-              deny all;
-          }
-          
-          # Static files
-          location ~* \.(jpg|jpeg|png|gif|ico|css|js|woff|woff2|ttf|eot|svg)\$$ {
-              expires 1y;
-              add_header Cache-Control \"public, immutable\";
-          }
-          
-          # Let's Encrypt
-          location /.well-known/acme-challenge/ {
-              root /var/www/certbot;
-          }
-      }
-      EOF
-      nginx -g 'daemon off;'
-      "
+        echo 'server {
+            listen 80;
+            server_name mapitedu.nl www.mapitedu.nl;
+            root /var/www/html/public;
+            index index.php index.html;
+            
+            # Security headers
+            add_header X-Content-Type-Options nosniff;
+            add_header X-Frame-Options DENY;
+            add_header X-XSS-Protection \"1; mode=block\";
+            add_header Referrer-Policy \"strict-origin-when-cross-origin\";
+            
+            # PHP handling
+            location / {
+                try_files \$$uri \$$uri/ /index.php?\$$query_string;
+            }
+            
+            location ~ \.php\$$ {
+                fastcgi_pass php:9000;
+                fastcgi_index index.php;
+                include fastcgi_params;
+                fastcgi_param SCRIPT_FILENAME /var/www/html/public\$$fastcgi_script_name;
+                fastcgi_param PATH_INFO \$$fastcgi_path_info;
+                fastcgi_read_timeout 300;
+                fastcgi_buffer_size 128k;
+                fastcgi_buffers 4 256k;
+                fastcgi_busy_buffers_size 256k;
+            }
+            
+            # Security - deny access to hidden files
+            location ~ /\. {
+                deny all;
+            }
+            
+            # Static files
+            location ~* \.(jpg|jpeg|png|gif|ico|css|js|woff|woff2|ttf|eot|svg)\$$ {
+                expires 1y;
+                add_header Cache-Control \"public, immutable\";
+            }
+            
+            # Let'\''s Encrypt
+            location /.well-known/acme-challenge/ {
+                root /var/www/certbot;
+            }
+        }' > /etc/nginx/conf.d/default.conf &&
+        nginx -g 'daemon off;'"
 
   # MySQL Database
   mysql:
@@ -101,7 +96,7 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql
     networks:
-      - mapit_network
+      - prod_network
     restart: unless-stopped
 
   # Redis Cache
@@ -111,7 +106,7 @@ services:
     volumes:
       - redis_data:/data
     networks:
-      - mapit_network
+      - prod_network
     restart: unless-stopped
 
   # Let's Encrypt Certbot
@@ -144,6 +139,6 @@ volumes:
     driver: local
 
 networks:
-  mapit_network:
+  prod_network:
     driver: bridge
     name: mapit_prod_network

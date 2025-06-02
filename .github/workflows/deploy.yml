@@ -121,15 +121,13 @@ jobs:
 
         # SSL Configuration
         SSL_ENABLED=true
-        FORCE_HTTPS=true
-
-        # Performance
+        FORCE_HTTPS=true        # Performance
         OPCACHE_ENABLED=true
         REDIS_CACHE_TTL=3600
 
         # Admin Settings
         ADMIN_EMAIL=${{ secrets.ADMIN_EMAIL || 'admin@mapitedu.nl' }}
-        
+
         # Redis Configuration
         REDIS_HOST=redis
         REDIS_PORT=6379
@@ -149,8 +147,9 @@ jobs:
       run: |
         ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }} "
           cd /opt/mapit/current
-          sudo docker compose -f docker-compose.production.yml down || true
-          sudo docker compose -f docker-compose.production.yml up -d --build nginx php mysql redis
+          export DB_PASSWORD='${{ secrets.DB_PASSWORD }}'
+          sudo -E docker compose -f docker-compose.production.yml down || true
+          sudo -E docker compose -f docker-compose.production.yml up -d --build nginx php mysql redis
         "
 
     - name: Wait for HTTP services to start
@@ -184,37 +183,13 @@ jobs:
           if curl -f -s -m 10 -H 'Host: mapitedu.nl' http://localhost/ > /dev/null; then
             echo '✅ Domain is accessible via HTTP, proceeding with SSL setup'
             
-            # Check if SSL certificates already exist and are valid
-            echo '🔍 Checking for existing SSL certificates...'
-            if sudo docker run --rm -v current_certbot_conf:/certs alpine test -f /certs/live/mapitedu.nl/fullchain.pem; then
-              # Check if certificates are still valid (not expiring in next 30 days)
-              CERT_EXPIRY=$(sudo docker run --rm -v current_certbot_conf:/certs alpine sh -c \"openssl x509 -in /certs/live/mapitedu.nl/fullchain.pem -noout -enddate | cut -d= -f2\")
-              EXPIRY_EPOCH=$(date -d \"\$CERT_EXPIRY\" +%s)
-              THIRTY_DAYS_FROM_NOW=$(date -d '+30 days' +%s)
-              
-              if [ \$EXPIRY_EPOCH -gt \$THIRTY_DAYS_FROM_NOW ]; then
-                echo '✅ Valid SSL certificates found (expires: '\$CERT_EXPIRY')'
-                echo '⏭️  Skipping certificate request to avoid rate limits'
-                CERTS_EXIST=true
-              else
-                echo '⚠️  SSL certificates expire soon ('\$CERT_EXPIRY'), will renew'
-                CERTS_EXIST=false
-              fi
-            else
-              echo '❌ No SSL certificates found'
-              CERTS_EXIST=false
-            fi
-            
-            # Only request new certificates if they don't exist or are expiring soon
-            if [ \"\$CERTS_EXIST\" = \"false\" ]; then
-              # Create certbot webroot directory
-              sudo mkdir -p /var/lib/docker/volumes/current_certbot_www/_data
-              sudo chmod 755 /var/lib/docker/volumes/current_certbot_www/_data
-              
+            # Create certbot webroot directory
+            sudo mkdir -p /var/lib/docker/volumes/mapit_prod_network_certbot_www/_data
+            sudo chmod 755 /var/lib/docker/volumes/mapit_prod_network_certbot_www/_data
               # Get SSL certificates using certbot
-              echo '📋 Requesting SSL certificates...'
-              sudo docker compose -f docker-compose.production.yml run --rm certbot
-            fi
+            echo '📋 Requesting SSL certificates...'
+            export DB_PASSWORD='${{ secrets.DB_PASSWORD }}'
+            sudo -E docker compose -f docker-compose.production.yml run --rm certbot
             
             # Check if certificates are available (either existing or newly created)
             if sudo docker run --rm -v current_certbot_conf:/certs alpine test -f /certs/live/mapitedu.nl/fullchain.pem; then

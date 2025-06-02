@@ -2,6 +2,14 @@
 
 This document provides instructions for deploying MapIt to production.
 
+## Recent Updates
+
+✅ **Production Deployment Fixed** (June 2025)
+- Fixed Dockerfile to use PHP-FPM for better nginx integration
+- Resolved docker-compose.production.yml configuration issues  
+- Self-contained production setup with inline configurations
+- No external file dependencies for cleaner deployment
+
 ## Prerequisites
 
 - Production server with Docker and Docker Compose installed

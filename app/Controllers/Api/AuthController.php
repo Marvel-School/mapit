@@ -303,6 +303,44 @@ class AuthController extends Controller
     }
 
     /**
+     * Debug endpoint to check database schema
+     * 
+     * @return void
+     */
+    public function debugSchema()
+    {
+        try {
+            $db = Database::getInstance();
+            
+            // Check if users table exists and its structure
+            $db->query("SHOW TABLES LIKE 'users'");
+            $usersTableExists = $db->single();
+            
+            if ($usersTableExists) {
+                $db->query("DESCRIBE users");
+                $columns = $db->resultSet();
+            }
+            
+            $this->cleanJsonResponse([
+                'success' => true,
+                'message' => 'Schema check completed',
+                'data' => [
+                    'users_table_exists' => (bool)$usersTableExists,
+                    'users_columns' => $columns ?? null,
+                    'timestamp' => date('Y-m-d H:i:s')
+                ]
+            ], 200);
+            
+        } catch (\Exception $e) {
+            $this->cleanJsonResponse([
+                'success' => false,
+                'message' => 'Schema check failed: ' . $e->getMessage(),
+                'error_code' => 'SCHEMA_ERROR'
+            ], 500);
+        }
+    }
+
+    /**
      * Send clean JSON response by discarding any previous output
      * 
      * @param array $data

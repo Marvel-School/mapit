@@ -84,9 +84,7 @@ class Router
     public function load($file)
     {
         require $file;
-    }
-
-    /**
+    }    /**
      * Match the current request to a route
      * 
      * @param string $uri
@@ -95,6 +93,16 @@ class Router
      */
     public function match($uri, $method)
     {
+        // Handle HEAD requests by treating them as GET requests
+        if ($method === 'HEAD') {
+            $method = 'GET';
+        }
+        
+        // Ensure the method exists in our routes array
+        if (!array_key_exists($method, $this->routes)) {
+            return false;
+        }
+        
         if (array_key_exists($uri, $this->routes[$method])) {
             return $this->routes[$method][$uri];
         }

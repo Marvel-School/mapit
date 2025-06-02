@@ -279,12 +279,21 @@ jobs:
                 echo '🔍 Available nginx configs:'
                 ls -la docker/production/nginx/ || echo 'Cannot list nginx configs'
               fi
+                echo '🔄 Switching to HTTPS configuration:'
+              echo '🔍 Stopping nginx to replace config...'
+              sudo docker exec mapit_nginx_prod nginx -s quit || echo 'Nginx was not running'
+              sleep 3
               
-              echo '🔄 Switching to HTTPS configuration:'
               if sudo docker cp docker/production/nginx/https.conf mapit_nginx_prod:/etc/nginx/conf.d/default.conf; then
                 echo '✅ HTTPS config copied to container'
+                
+                echo '🔍 Starting nginx with new config...'
+                sudo docker exec mapit_nginx_prod nginx
+                echo '✅ Nginx restarted with HTTPS config'
               else
                 echo '❌ Failed to copy HTTPS config'
+                echo '🔄 Starting nginx with original config...'
+                sudo docker exec mapit_nginx_prod nginx
                 exit 1
               fi
               
@@ -298,19 +307,13 @@ jobs:
               NGINX_TEST_EXIT_CODE=\$?
               echo '   Nginx test output: '\$NGINX_TEST_OUTPUT
               echo '   Nginx test exit code: '\$NGINX_TEST_EXIT_CODE
-              
-              if [ \$NGINX_TEST_EXIT_CODE -eq 0 ]; then
+                if [ \$NGINX_TEST_EXIT_CODE -eq 0 ]; then
                 echo '✅ Nginx configuration test passed'
-                echo '🔄 Reloading nginx with HTTPS config:'
-                
-                NGINX_RELOAD_OUTPUT=\$(sudo docker exec mapit_nginx_prod nginx -s reload 2>&1)
-                echo '   Nginx reload output: '\$NGINX_RELOAD_OUTPUT
-                
-                echo '🔍 Checking nginx process:'
+                echo '🔍 Checking nginx process status:'
                 sudo docker exec mapit_nginx_prod ps aux | grep nginx || echo 'Cannot check nginx processes'
                 
                 echo '🔍 Testing HTTPS connectivity:'
-                sleep 10  # Give nginx time to reload
+                sleep 10  # Give nginx time to stabilize
                 for attempt in 1 2 3; do
                   echo \"   HTTPS test attempt \$attempt/3:\"
                   HTTPS_RESPONSE=\$(curl -s -o /dev/null -w '%{http_code}' -m 15 -k https://mapitedu.nl/ 2>&1 || echo 'HTTPS_FAILED')
@@ -331,12 +334,13 @@ jobs:
                     echo \"   Waiting before retry...\"
                     sleep 5
                   fi
-                done
-              else
+                done              else
                 echo '❌ HTTPS configuration test failed'
                 echo '🔄 Reverting to HTTP configuration:'
+                sudo docker exec mapit_nginx_prod nginx -s quit || echo 'Nginx was not running'
+                sleep 3
                 sudo docker cp docker/production/nginx/http-only-fixed.conf mapit_nginx_prod:/etc/nginx/conf.d/default.conf
-                sudo docker exec mapit_nginx_prod nginx -s reload
+                sudo docker exec mapit_nginx_prod nginx
                 echo '✅ Reverted to HTTP configuration'
               fi
             else

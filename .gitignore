@@ -22,6 +22,31 @@
 *.log
 *.sql
 *.sqlite
+storage/logs/*
+
+# Environment files with sensitive data
+.env.production
+.env.local
+.env.staging
+
+# Backup files
+backups/*.sql
+*.backup*
+*_backup*
+
+# Uploaded user content
+public/images/destinations/*.jpg
+public/images/destinations/*.jpeg
+public/images/destinations/*.png
+public/images/avatars/*.jpg
+public/images/avatars/*.jpeg
+public/images/avatars/*.png
+
+# Deployment and setup files
+*-setup.sh
+*-deployment*.md
+*SECRETS*.md
+SSH_KEY*.md
 
 # OS generated files
 .DS_Store

@@ -5,10 +5,44 @@ namespace App\Models;
 use App\Core\Model;
 
 class User extends Model
-{
-    protected $table = 'users';    protected $fillable = [
-        'username', 'email', 'password_hash', 'role', 'name', 'bio', 'country', 'website', 'avatar', 'settings', 'last_login'
+{    protected $table = 'users';    protected $fillable = [
+        'username', 'email', 'password', 'password_hash', 'role', 'name', 'bio', 'country', 'website', 'avatar', 'settings', 'last_login'
     ];
+    
+    /**
+     * Get the password column name based on database schema
+     * 
+     * @return string
+     */
+    private function getPasswordColumn()
+    {
+        static $passwordColumn = null;
+        
+        if ($passwordColumn === null) {
+            try {
+                $db = \App\Core\Database::getInstance();
+                $db->query("DESCRIBE users");
+                $columns = $db->resultSet();
+                
+                foreach ($columns as $column) {
+                    if ($column['Field'] === 'password_hash') {
+                        $passwordColumn = 'password_hash';
+                        break;
+                    } else if ($column['Field'] === 'password') {
+                        $passwordColumn = 'password';
+                        break;
+                    }
+                }
+                
+                // Default to password_hash if neither found
+                $passwordColumn = $passwordColumn ?: 'password_hash';
+            } catch (\Exception $e) {
+                $passwordColumn = 'password_hash'; // fallback
+            }
+        }
+        
+        return $passwordColumn;
+    }
     
     /**
      * Find a user by email
@@ -42,7 +76,8 @@ class User extends Model
         $logModel = new \App\Models\Log();
         $logModel::write('DEBUG', "Registration attempt", ['username' => $data['username'], 'email' => $data['email']], 'Authentication');
         
-        $data['password_hash'] = password_hash($data['password'], PASSWORD_DEFAULT);
+        $passwordColumn = $this->getPasswordColumn();
+        $data[$passwordColumn] = password_hash($data['password'], PASSWORD_DEFAULT);
         unset($data['password']);
         unset($data['password_confirm']);
         
@@ -81,10 +116,10 @@ class User extends Model
         // Log if user not found
         if (!$user) {
             $logModel::write('WARN', "Login failed: User not found with identifier: {$username}", [], 'Authentication');
-            return false;
-        }
+            return false;        }
           // Verify password if user exists
-        if (password_verify($password, $user['password_hash'])) {
+        $passwordColumn = $this->getPasswordColumn();
+        if (password_verify($password, $user[$passwordColumn])) {
             $username = $user['username'] ?? 'unknown';
             $logModel::write('INFO', "Login successful for user: {$username}", ['user_id' => $user['id']], 'Authentication');
             return $user;

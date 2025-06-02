@@ -6,7 +6,7 @@
       dockerfile: Dockerfile
     container_name: mapit_php_prod
     environment:
-      TZ: Europe/Amsterdam
+      TZ: Europe/Amsterdam    
     volumes:
       - ./storage:/var/www/html/storage
       - ./storage/logs:/var/www/html/logs
@@ -17,17 +17,18 @@
       - mysql
       - redis
     restart: unless-stopped
+    
   # Nginx Web Server
   nginx:
     image: nginx:alpine
     container_name: mapit_nginx_prod
     ports:
       - "80:80"
-      - "443:443"    
+      - "443:443"
     volumes:
       - ./public:/var/www/html/public:ro
       - ./storage/logs/nginx:/var/log/nginx
-      - ./docker/production/nginx/http-only-fixed.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./docker/production/nginx/https.conf:/etc/nginx/conf.d/default.conf:ro
       - certbot_www:/var/www/certbot
       - certbot_conf:/etc/nginx/ssl:ro
     networks:

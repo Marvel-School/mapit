@@ -1,4 +1,31 @@
-# VS Code files that might cause cache issues
+# Dependencies
+/vendor/
+/node_modules/
+/bower_components/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+.env.production
+.env.testing
+
+# Logs
+/storage/logs/*.log
+/storage/logs/*.txt
+!/storage/logs/.gitkeep
+
+# Cache
+/storage/cache/*
+!/storage/cache/.gitkeep
+
+# Uploads
+/storage/uploads/*
+!/storage/uploads/.gitkeep
+/public/uploads/*
+!/public/uploads/.gitkeep
+
+# IDE files
 .vscode/*
 !.vscode/settings.json
 !.vscode/tasks.json
@@ -8,6 +35,20 @@
 .vscode-upload.json
 .vscode/file-monitor.log
 .vscode/prevent-file-recreation.ps1
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Docker volumes and data
+docker-data/
+/mysql-data/
+
+# Database files
+*.sqlite
+*.db
+database/*.sqlite
+database/*.db
+!/database/.gitkeep
 
 # Local History for Visual Studio Code
 .history/

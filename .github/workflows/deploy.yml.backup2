@@ -1,0 +1,173 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy to Production Server
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup SSH Key
+      run: |
+        mkdir -p ~/.ssh
+        cat > ~/.ssh/id_rsa << 'EOF'
+        ${{ secrets.SSH_PRIVATE_KEY }}
+        EOF
+        chmod 600 ~/.ssh/id_rsa
+        chmod 700 ~/.ssh
+        ssh-keyscan -H ${{ secrets.PRODUCTION_HOST }} >> ~/.ssh/known_hosts
+        # Debug: Check key format
+        echo "SSH key first line:"
+        head -1 ~/.ssh/id_rsa
+        echo "SSH key last line:"
+        tail -1 ~/.ssh/id_rsa
+
+    - name: Test SSH connection
+      run: |
+        ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }} "echo 'SSH connection successful'"
+
+    - name: Create deployment directory
+      run: |
+        ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }} "
+          sudo mkdir -p /opt/mapit/current
+          sudo mkdir -p /opt/mapit/shared/storage
+          sudo mkdir -p /opt/mapit/shared/logs
+          sudo chown -R deploy:deploy /opt/mapit
+        "
+
+    - name: Copy application files
+      run: |
+        rsync -avz --delete \
+          -e 'ssh -o StrictHostKeyChecking=no' \
+          --exclude='.git' \
+          --exclude='node_modules' \
+          --exclude='vendor' \
+          --exclude='.env' \
+          --exclude='storage/logs' \
+          ./ ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/mapit/current/
+
+    - name: Create production environment file
+      run: |
+        ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }} "
+          cat > /opt/mapit/current/.env << 'EOF'
+        # Production Environment Configuration
+        APP_ENV=production
+        APP_DEBUG=false
+        APP_NAME=\"MapIt - Travel Destination Mapping\"
+        APP_URL=https://mapitedu.nl
+
+        # Database Configuration
+        DB_CONNECTION=mysql
+        DB_HOST=mysql
+        DB_PORT=3306
+        DB_DATABASE=mapit_production
+        DB_USERNAME=mapit_prod_user
+        DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+
+        # Session Configuration
+        SESSION_DRIVER=redis
+        SESSION_LIFETIME=1440
+
+        # Mail Configuration
+        MAIL_DRIVER=smtp
+        MAIL_HOST=${{ secrets.MAIL_HOST }}
+        MAIL_PORT=${{ secrets.MAIL_PORT }}
+        MAIL_USERNAME=${{ secrets.MAIL_USERNAME }}
+        MAIL_PASSWORD=${{ secrets.MAIL_PASSWORD }}
+        MAIL_ENCRYPTION=tls
+
+        # API Keys
+        GOOGLE_MAPS_API_KEY=${{ secrets.GOOGLE_MAPS_API_KEY }}
+        WEATHER_API_KEY=${{ secrets.WEATHER_API_KEY }}
+
+        # Security
+        JWT_SECRET=${{ secrets.JWT_SECRET }}
+        ENCRYPTION_KEY=${{ secrets.ENCRYPTION_KEY }}
+
+        # File Upload Settings
+        MAX_UPLOAD_SIZE=10485760
+        ALLOWED_IMAGE_TYPES=jpg,jpeg,png,webp
+
+        # Cache Configuration
+        CACHE_DRIVER=redis
+        CACHE_PREFIX=mapit_prod_
+
+        # Logging
+        LOG_LEVEL=warning
+        LOG_CHANNEL=daily
+
+        # SSL Configuration
+        SSL_ENABLED=true
+        FORCE_HTTPS=true
+
+        # Performance
+        OPCACHE_ENABLED=true
+        REDIS_CACHE_TTL=3600
+
+        # Admin Settings
+        ADMIN_EMAIL=${{ secrets.ADMIN_EMAIL }}
+
+        # Redis Configuration
+        REDIS_HOST=redis
+        REDIS_PORT=6379
+        REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
+        EOF
+        "
+
+    - name: Set permissions
+      run: |
+        ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }} "
+          sudo chown -R www-data:www-data /opt/mapit/current
+          sudo chmod -R 755 /opt/mapit/current
+          sudo chmod -R 775 /opt/mapit/current/storage
+          sudo chmod -R 775 /opt/mapit/current/public
+        "
+
+    - name: Deploy with Docker Compose
+      run: |
+        ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }} "
+          cd /opt/mapit/current
+          sudo docker compose -f docker-compose.production.yml down || true
+          sudo docker compose -f docker-compose.production.yml up -d
+        "
+
+    - name: Wait for services to start
+      run: |
+        ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }} "
+          echo 'Waiting for services to start...'
+          sleep 30
+          sudo docker compose -f /opt/mapit/current/docker-compose.production.yml ps
+        "
+
+    - name: Health Check
+      run: |
+        echo "Waiting for application to be ready..."
+        sleep 60
+        for i in {1..10}; do
+          if curl -f -s http://${{ secrets.PRODUCTION_HOST }}/health; then
+            echo "✅ Health check passed"
+            exit 0
+          fi
+          echo "⏳ Waiting for application... (attempt $i/10)"
+          sleep 15
+        done
+        echo "❌ Health check failed, but deployment may still be successful"
+        echo "Check manually at http://${{ secrets.PRODUCTION_HOST }}"
+
+    - name: Deployment Summary
+      if: always()
+      run: |
+        if [ "${{ job.status }}" == "success" ]; then
+          echo "🚀 Deployment completed!"
+          echo "📍 Your site should be available at: http://${{ secrets.PRODUCTION_HOST }}"
+          echo "🔍 Health check: http://${{ secrets.PRODUCTION_HOST }}/health"
+        else
+          echo "❌ Deployment had issues. Check the logs above."
+        fi

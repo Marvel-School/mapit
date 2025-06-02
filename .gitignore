@@ -1,12 +1,3 @@
-# Environment variables and sensitive configuration
-.env
-.env.local
-.env.production
-.env.development
-.env.test
-.env.*
-!.env.example
-
 # VS Code files that might cause cache issues
 .vscode/*
 !.vscode/settings.json
@@ -27,20 +18,10 @@
 *.swp
 *~.nib
 
-# Logs and databases (but allow schema files)
+# Logs and databases
 *.log
-storage/logs/*
-!storage/logs/.gitkeep
+*.sql
 *.sqlite
-
-# Backup files and directories (should never be in version control)
-backups/
-backup/
-*.backup
-*_backup*
-*.dump
-*.sql.gz
-*.sql.bz2
 
 # OS generated files
 .DS_Store
@@ -126,11 +107,3 @@ CLEANUP_SUCCESS.md
 scripts/*.php
 scripts/*.sh
 scripts/*.ps1
-
-# User-uploaded content (should never be in version control)
-public/images/destinations/*
-!public/images/destinations/.htaccess
-public/images/avatars/*
-!public/images/avatars/.htaccess
-uploads/
-uploaded/

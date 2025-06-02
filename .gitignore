@@ -27,11 +27,11 @@
 *.swp
 *~.nib
 
-# Logs and databases
+# Logs and databases (but allow schema files)
 *.log
-*.sql
-*.sqlite
 storage/logs/*
+!storage/logs/.gitkeep
+*.sqlite
 
 # Backup files and directories (should never be in version control)
 backups/

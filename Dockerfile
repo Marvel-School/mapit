@@ -36,11 +36,12 @@ COPY . /var/www/html
 # Install PHP dependencies
 RUN composer install --no-dev --optimize-autoloader
 
-# Set permissions
-RUN chown -R www-data:www-data /var/www/html \
+# Create necessary directories and set permissions
+RUN mkdir -p /var/www/html/storage /var/www/html/logs \
+    && chown -R www-data:www-data /var/www/html \
     && chmod -R 755 /var/www/html \
     && chmod -R 777 /var/www/html/storage \
-    && chmod -R 777 /var/www/html/database
+    && chmod -R 777 /var/www/html/logs
 
 # Configure Apache
 RUN a2enmod rewrite headers

@@ -47,8 +47,9 @@ COPY . .
 # Install PHP dependencies
 RUN composer install --no-dev --optimize-autoloader --no-interaction
 
-# Set permissions
-RUN chown -R www-data:www-data /var/www/html \
+# Create necessary directories and set permissions
+RUN mkdir -p /var/www/html/storage /var/www/html/logs \
+    && chown -R www-data:www-data /var/www/html \
     && chmod -R 755 /var/www/html \
     && chmod -R 775 /var/www/html/storage \
     && chmod -R 775 /var/www/html/logs

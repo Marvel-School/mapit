@@ -307,12 +307,13 @@ jobs:
               sudo docker exec mapit_nginx_prod ls -la /etc/nginx/conf.d/ || echo 'Cannot list nginx config directory'
               echo '🔍 Config file content in container:'
               sudo docker exec mapit_nginx_prod head -5 /etc/nginx/conf.d/default.conf || echo 'Cannot read config file in container'
-              
-              echo '🔍 Testing nginx configuration:'
+                echo '🔍 Testing nginx configuration:'
               NGINX_TEST_OUTPUT=\$(sudo docker exec mapit_nginx_prod nginx -t 2>&1)
               NGINX_TEST_EXIT_CODE=\$?
               echo '   Nginx test output: '\$NGINX_TEST_OUTPUT
-              echo '   Nginx test exit code: '\$NGINX_TEST_EXIT_CODE              if [ \$NGINX_TEST_EXIT_CODE -eq 0 ]; then
+              echo '   Nginx test exit code: '\$NGINX_TEST_EXIT_CODE
+              
+              if [ \$NGINX_TEST_EXIT_CODE -eq 0 ]; then
                 echo '✅ Nginx configuration test passed'
                 echo '🔍 Checking nginx container status:'
                 sudo docker ps | grep mapit_nginx_prod || echo 'Cannot find nginx container'

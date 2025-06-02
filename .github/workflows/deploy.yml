@@ -269,15 +269,17 @@ jobs:
               echo '   Subject: '\$CERT_SUBJECT
               
               echo '🔍 === NGINX HTTPS CONFIGURATION ==='
-              echo '🔍 Checking HTTPS config file:'
-              if [ -f docker/production/nginx/https.conf ]; then
+              echo '🔍 Checking HTTPS config file:'              if [ -f docker/production/nginx/https.conf ]; then
                 echo '✅ HTTPS config file exists'
                 echo '🔍 Config file preview:'
-                head -10 docker/production/nginx/https.conf              else
+                head -10 docker/production/nginx/https.conf
+              else
                 echo '❌ HTTPS config file not found'
                 echo '🔍 Available nginx configs:'
                 ls -la docker/production/nginx/ || echo 'Cannot list nginx configs'
-              fi              echo '🔄 Switching to HTTPS configuration:'
+              fi
+              
+              echo '🔄 Switching to HTTPS configuration:'
               echo '🔍 Preparing HTTPS configuration file...'
               
               # Replace the mounted config file with HTTPS version

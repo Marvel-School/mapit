@@ -1,0 +1,457 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy to Production Server
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup SSH Key (Alternative Method)
+      run: |
+        mkdir -p ~/.ssh
+        chmod 700 ~/.ssh
+        # Write SSH private key using base64 to avoid special character issues
+        echo "${{ secrets.SSH_PRIVATE_KEY }}" | tr -d '\r' > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        
+        # Add server to known hosts
+        ssh-keyscan -H ${{ secrets.PRODUCTION_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
+        
+        # Verify key format
+        echo "🔍 SSH Key validation:"
+        if [[ $(head -1 ~/.ssh/id_rsa) == "-----BEGIN"* ]]; then
+          echo "✅ SSH key starts with proper header"
+        else
+          echo "❌ SSH key missing proper header"
+          echo "First line: $(head -1 ~/.ssh/id_rsa)"
+        fi
+        
+        if [[ $(tail -1 ~/.ssh/id_rsa) == "-----END"* ]]; then
+          echo "✅ SSH key ends with proper footer"
+        else
+          echo "❌ SSH key missing proper footer"
+          echo "Last line: $(tail -1 ~/.ssh/id_rsa)"
+        fi
+          # Test if key is readable
+        ssh-keygen -l -f ~/.ssh/id_rsa && echo "✅ SSH key is valid" || echo "❌ SSH key validation failed"
+
+    - name: Test SSH connection
+      run: |
+        echo "🔐 Testing SSH connection to ${{ secrets.PRODUCTION_HOST }}..."
+        ssh -vvv -o StrictHostKeyChecking=no -o ConnectTimeout=30 -o BatchMode=yes ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }} "echo 'SSH connection successful'"
+
+    - name: Create deployment directory
+      run: |
+        ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }} "
+          sudo mkdir -p /opt/mapit/current
+          sudo mkdir -p /opt/mapit/current/storage/logs
+          sudo mkdir -p /opt/mapit/current/storage/uploads
+          sudo mkdir -p /opt/mapit/current/docker/production/ssl
+          sudo chown -R deploy:deploy /opt/mapit
+        "
+
+    - name: Copy application files
+      run: |
+        rsync -avz --delete \
+          -e 'ssh -o StrictHostKeyChecking=no' \
+          --exclude='.git' \
+          --exclude='node_modules' \
+          --exclude='vendor' \
+          --exclude='.env' \
+          --exclude='storage/logs' \
+          ./ ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/mapit/current/
+
+    - name: Create production environment file
+      run: |
+        ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }} "
+          cat > /opt/mapit/current/.env << 'EOF'
+        # Production Environment Configuration
+        APP_ENV=production
+        APP_DEBUG=false
+        APP_NAME=\"MapIt - Travel Destination Mapping\"
+        APP_URL=https://mapitedu.nl
+
+        # Database Configuration
+        DB_CONNECTION=mysql
+        DB_HOST=mysql
+        DB_PORT=3306
+        DB_DATABASE=mapit_production
+        DB_USERNAME=mapit_prod_user
+        DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+
+        # Session Configuration
+        SESSION_DRIVER=redis
+        SESSION_LIFETIME=1440
+
+        # Mail Configuration
+        MAIL_DRIVER=smtp
+        MAIL_HOST=${{ secrets.MAIL_HOST || 'localhost' }}
+        MAIL_PORT=${{ secrets.MAIL_PORT || '587' }}
+        MAIL_USERNAME=${{ secrets.MAIL_USERNAME || '' }}
+        MAIL_PASSWORD=${{ secrets.MAIL_PASSWORD || '' }}
+        MAIL_ENCRYPTION=tls
+
+        # API Keys
+        GOOGLE_MAPS_API_KEY=${{ secrets.GOOGLE_MAPS_API_KEY }}
+        WEATHER_API_KEY=${{ secrets.WEATHER_API_KEY || '' }}
+
+        # Security
+        JWT_SECRET=${{ secrets.JWT_SECRET }}
+        ENCRYPTION_KEY=${{ secrets.ENCRYPTION_KEY }}
+
+        # File Upload Settings
+        MAX_UPLOAD_SIZE=10485760
+        ALLOWED_IMAGE_TYPES=jpg,jpeg,png,webp
+
+        # Cache Configuration
+        CACHE_DRIVER=redis
+        CACHE_PREFIX=mapit_prod_
+
+        # Logging
+        LOG_LEVEL=warning
+        LOG_CHANNEL=daily
+
+        # SSL Configuration
+        SSL_ENABLED=true
+        FORCE_HTTPS=true        # Performance
+        OPCACHE_ENABLED=true
+        REDIS_CACHE_TTL=3600
+
+        # Admin Settings
+        ADMIN_EMAIL=${{ secrets.ADMIN_EMAIL || 'admin@mapitedu.nl' }}
+
+        # Redis Configuration
+        REDIS_HOST=redis
+        REDIS_PORT=6379
+        REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
+        EOF
+        "
+
+    - name: Set permissions
+      run: |
+        ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }} "          sudo chown -R www-data:www-data /opt/mapit/current
+          sudo chmod -R 755 /opt/mapit/current
+          sudo chmod -R 775 /opt/mapit/current/storage
+          sudo chmod -R 775 /opt/mapit/current/public
+        "
+
+    - name: Deploy with Docker Compose (HTTP first)
+      run: |
+        ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }} "
+          cd /opt/mapit/current
+          export DB_PASSWORD='${{ secrets.DB_PASSWORD }}'
+          sudo -E docker compose -f docker-compose.production.yml down || true
+          sudo -E docker compose -f docker-compose.production.yml up -d --build nginx php mysql redis
+        "
+
+    - name: Wait for HTTP services to start
+      run: |
+        ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }} "
+          echo 'Waiting for HTTP services to start...'
+          sleep 45
+          sudo docker compose -f /opt/mapit/current/docker-compose.production.yml ps
+        "
+
+    - name: Test HTTP connectivity
+      run: |
+        echo "Testing HTTP connectivity..."
+        sleep 30
+        if curl -f -s -m 10 http://${{ secrets.PRODUCTION_HOST }}/ > /dev/null; then
+          echo "✅ HTTP site is accessible"        else
+          echo "❌ HTTP site is not accessible - checking logs..."
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }} "sudo docker logs mapit_nginx_prod --tail 20"
+        fi    - name: Setup SSL certificates
+      run: |
+        ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }} "
+          cd /opt/mapit/current
+          
+          echo '🔍 Checking server and domain configuration...'
+          SERVER_IP=\$(curl -s ifconfig.me)
+          echo '   Server IP: '\$SERVER_IP
+          
+          echo '🌐 Testing DNS resolution...'
+          DOMAIN_IP=\$(dig +short mapitedu.nl | tail -n1)
+          echo '   Domain IP: '\$DOMAIN_IP
+          if [ \"\$SERVER_IP\" = \"\$DOMAIN_IP\" ]; then
+            echo '✅ DNS correctly points to this server'
+          else
+            echo '⚠️ DNS mismatch - Server: '\$SERVER_IP', Domain: '\$DOMAIN_IP
+          fi
+          
+          echo '🔍 Testing HTTP access to domain...'
+          HTTP_RESPONSE=\$(curl -s -o /dev/null -w '%{http_code}' -m 10 -H 'Host: mapitedu.nl' http://localhost/)
+          echo '   HTTP Response Code: '\$HTTP_RESPONSE
+          
+          if [ \"\$HTTP_RESPONSE\" = \"200\" ]; then
+            echo '✅ Domain is accessible via HTTP, proceeding with SSL setup'
+            
+            echo '🔍 Checking existing certificates...'
+            if sudo docker run --rm -v current_certbot_conf:/certs alpine test -f /certs/live/mapitedu.nl/fullchain.pem 2>/dev/null; then
+              echo '✅ SSL certificates already exist'
+              CERT_EXISTS=true
+            else
+              echo '📋 No existing certificates found, requesting new ones...'
+              CERT_EXISTS=false
+            fi
+            
+            echo '🔍 Checking Docker volumes...'
+            sudo docker volume ls | grep certbot || echo 'No certbot volumes found'
+            
+            echo '🔍 Creating certbot directories...'
+            sudo mkdir -p /var/lib/docker/volumes/mapit_prod_network_certbot_www/_data
+            sudo mkdir -p /var/lib/docker/volumes/mapit_prod_network_certbot_conf/_data
+            sudo chmod 755 /var/lib/docker/volumes/mapit_prod_network_certbot_www/_data
+            sudo chmod 755 /var/lib/docker/volumes/mapit_prod_network_certbot_conf/_data
+            
+            if [ \"\$CERT_EXISTS\" = \"false\" ]; then
+              echo '📋 Requesting SSL certificates...'
+              export DB_PASSWORD='${{ secrets.DB_PASSWORD }}'
+              
+              echo '🔍 Checking certbot service in docker-compose...'
+              grep -A 10 'certbot:' docker-compose.production.yml || echo 'No certbot service found in docker-compose'
+              
+              echo '🔍 Running certbot...'
+              CERTBOT_OUTPUT=\$(sudo -E docker compose -f docker-compose.production.yml run --rm certbot 2>&1)
+              CERTBOT_EXIT_CODE=\$?
+              echo '   Certbot output:'
+              echo \"\$CERTBOT_OUTPUT\"
+              echo '   Certbot exit code: '\$CERTBOT_EXIT_CODE
+              
+              if [ \$CERTBOT_EXIT_CODE -ne 0 ]; then
+                echo '❌ Certbot failed with exit code '\$CERTBOT_EXIT_CODE
+                echo '🔍 Checking nginx logs for webroot issues...'
+                sudo docker logs mapit_nginx_prod --tail 50 | grep -i 'acme\|\.well-known' || echo 'No ACME-related logs found'
+              fi
+            fi
+            
+            echo '🔍 Checking certificate files after certbot...'
+            sudo docker run --rm -v current_certbot_conf:/certs alpine ls -la /certs/ 2>/dev/null || echo 'Cannot access certbot config volume'
+            sudo docker run --rm -v current_certbot_conf:/certs alpine ls -la /certs/live/ 2>/dev/null || echo 'No live certificates directory'
+            sudo docker run --rm -v current_certbot_conf:/certs alpine ls -la /certs/live/mapitedu.nl/ 2>/dev/null || echo 'No certificates for mapitedu.nl'
+            
+            # Check if certificates are available (either existing or newly created)
+            if sudo docker run --rm -v current_certbot_conf:/certs alpine test -f /certs/live/mapitedu.nl/fullchain.pem 2>/dev/null; then
+              echo '✅ SSL certificates are available'
+              
+              echo '🔍 Checking certificate validity...'
+              CERT_INFO=\$(sudo docker run --rm -v current_certbot_conf:/certs alpine openssl x509 -in /certs/live/mapitedu.nl/fullchain.pem -text -noout | grep -E 'Subject:|Not After:' 2>/dev/null || echo 'Cannot read certificate info')
+              echo '   Certificate info: '\$CERT_INFO
+              
+              echo '🔍 Checking HTTPS nginx configuration...'
+              if [ -f docker/production/nginx/https.conf ]; then
+                echo '✅ HTTPS config file exists'
+                echo '🔍 HTTPS config content:'
+                head -20 docker/production/nginx/https.conf
+              else
+                echo '❌ HTTPS config file not found'
+                ls -la docker/production/nginx/
+              fi
+              
+              # Switch to HTTPS configuration
+              echo '🔄 Switching to HTTPS configuration...'
+              sudo docker cp docker/production/nginx/https.conf mapit_nginx_prod:/etc/nginx/conf.d/default.conf
+              
+              echo '🔍 Verifying config was copied...'
+              sudo docker exec mapit_nginx_prod ls -la /etc/nginx/conf.d/
+              sudo docker exec mapit_nginx_prod head -10 /etc/nginx/conf.d/default.conf
+              
+              # Test nginx configuration
+              echo '🔍 Testing nginx configuration...'
+              NGINX_TEST_OUTPUT=\$(sudo docker exec mapit_nginx_prod nginx -t 2>&1)
+              NGINX_TEST_EXIT_CODE=\$?
+              echo '   Nginx test output: '\$NGINX_TEST_OUTPUT
+              echo '   Nginx test exit code: '\$NGINX_TEST_EXIT_CODE
+              
+              if [ \$NGINX_TEST_EXIT_CODE -eq 0 ]; then
+                # Reload nginx with HTTPS config
+                echo '🔄 Reloading nginx with HTTPS config...'
+                NGINX_RELOAD_OUTPUT=\$(sudo docker exec mapit_nginx_prod nginx -s reload 2>&1)
+                echo '   Nginx reload output: '\$NGINX_RELOAD_OUTPUT
+                
+                echo '🔍 Checking nginx process status...'
+                sudo docker exec mapit_nginx_prod ps aux | grep nginx
+                
+                echo '🔍 Testing HTTPS connectivity...'
+                sleep 5
+                HTTPS_RESPONSE=\$(curl -s -o /dev/null -w '%{http_code}' -m 10 -k https://mapitedu.nl/ 2>&1 || echo 'HTTPS connection failed')
+                echo '   HTTPS Response: '\$HTTPS_RESPONSE
+                
+                if [ \"\$HTTPS_RESPONSE\" = \"200\" ]; then
+                  echo '🚀 HTTPS is now active!'
+                  echo '📍 Your site is available at: https://mapitedu.nl'
+                else
+                  echo '❌ HTTPS test failed after nginx reload'
+                  echo '🔍 Checking nginx error logs...'
+                  sudo docker logs mapit_nginx_prod --tail 20
+                fi
+              else
+                echo '❌ HTTPS configuration test failed, staying with HTTP'
+                echo '🔍 Reverting to HTTP configuration...'
+                sudo docker cp docker/production/nginx/http-only-fixed.conf mapit_nginx_prod:/etc/nginx/conf.d/default.conf
+                sudo docker exec mapit_nginx_prod nginx -s reload
+              fi
+            else
+              echo '⚠️ SSL certificate setup failed, continuing with HTTP'
+              echo '🔍 Certificate troubleshooting:'
+              echo '   - Check if port 80 is accessible from internet'
+              echo '   - Verify DNS propagation: dig mapitedu.nl'
+              echo '   - Check nginx logs for .well-known access'
+              sudo docker logs mapit_nginx_prod --tail 30 | grep -i 'acme\|\.well-known\|404\|403' || echo 'No relevant nginx logs'
+            fi
+          else
+            echo '⚠️ Domain HTTP test failed with response code: '\$HTTP_RESPONSE
+            echo '🔍 Debugging HTTP access...'
+            echo '   Testing localhost directly:'
+            curl -s -o /dev/null -w '%{http_code}' -m 5 http://localhost/ || echo 'Localhost test failed'
+            echo '   Testing with domain header:'
+            curl -s -o /dev/null -w '%{http_code}' -m 5 -H 'Host: mapitedu.nl' http://localhost/ || echo 'Domain header test failed'
+            echo '   Checking nginx container status:'
+            sudo docker ps | grep nginx || echo 'Nginx container not running'
+            echo '   Checking nginx logs:'
+            sudo docker logs mapit_nginx_prod --tail 10
+            echo '⚠️ This could mean:'
+            echo '   1. DNS is not pointing to this server yet'
+            echo '   2. HTTP site is not accessible'
+            echo '   3. Nginx configuration issues'
+            echo '   Please check DNS settings and nginx configuration'
+            echo '   For now, continuing with HTTP only'
+          fi
+        "    - name: Health Check
+      run: |
+        echo "🔍 Performing comprehensive health checks..."
+        sleep 30
+        
+        # Check container status
+        ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }} "
+          echo '🐳 Checking container status:'
+          sudo docker ps -a
+          echo ''
+          
+          echo '🔍 Checking container logs:'
+          echo '--- Nginx logs (last 10 lines) ---'
+          sudo docker logs mapit_nginx_prod --tail 10 2>/dev/null || echo 'Cannot get nginx logs'
+          echo '--- PHP logs (last 10 lines) ---'
+          sudo docker logs mapit_php_prod --tail 10 2>/dev/null || echo 'Cannot get PHP logs'
+          echo '--- MySQL logs (last 5 lines) ---'
+          sudo docker logs mapit_mysql_prod --tail 5 2>/dev/null || echo 'Cannot get MySQL logs'
+          echo ''
+        "
+        
+        echo "🌐 Testing connectivity..."
+        for i in {1..10}; do
+          echo "⏳ Health check attempt $i/10"
+          
+          # Test HTTP
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -m 10 http://${{ secrets.PRODUCTION_HOST }}/ 2>/dev/null || echo "FAILED")
+          echo "   HTTP Status: $HTTP_STATUS"
+          
+          # Test specific health endpoint if it exists
+          HEALTH_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -m 10 http://${{ secrets.PRODUCTION_HOST }}/health 2>/dev/null || echo "FAILED")
+          echo "   Health endpoint: $HEALTH_STATUS"
+          
+          # Test HTTPS (ignore certificate errors for now)
+          HTTPS_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -m 10 -k https://${{ secrets.PRODUCTION_HOST }}/ 2>/dev/null || echo "FAILED")
+          echo "   HTTPS Status: $HTTPS_STATUS"
+          
+          if [ "$HTTP_STATUS" = "200" ] || [ "$HEALTH_STATUS" = "200" ]; then
+            echo "✅ Health check passed!"
+            
+            # Show final status
+            echo ""
+            echo "🎉 Final connectivity test:"
+            echo "   HTTP:  http://mapitedu.nl → $HTTP_STATUS"
+            echo "   HTTPS: https://mapitedu.nl → $HTTPS_STATUS"
+            
+            if [ "$HTTPS_STATUS" = "200" ]; then
+              echo "🔒 SSL/HTTPS is working!"
+            else
+              echo "⚠️ HTTPS not working, but HTTP is functional"
+            fi
+            
+            exit 0
+          fi
+          
+          if [ $i -lt 10 ]; then
+            echo "   Waiting 15 seconds before retry..."
+            sleep 15
+          fi
+        done
+        
+        echo "❌ Health check failed after 10 attempts"
+        echo "🔍 Final debugging information:"
+        ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }} "
+          echo 'Container status:'
+          sudo docker ps
+          echo ''
+          echo 'Recent nginx errors:'
+          sudo docker logs mapit_nginx_prod --tail 20 | grep -i error || echo 'No nginx errors found'
+          echo ''
+          echo 'Network connectivity:'
+          curl -v http://localhost/ 2>&1 | head -20 || echo 'Local curl failed'
+        "
+        echo "Manual check recommended at: http://${{ secrets.PRODUCTION_HOST }}"    - name: Deployment Summary
+      if: always()
+      run: |
+        echo "📊 DEPLOYMENT SUMMARY"
+        echo "===================="
+        
+        if [ "${{ job.status }}" == "success" ]; then
+          echo "🚀 Deployment Status: COMPLETED SUCCESSFULLY"
+          echo ""
+          echo "🌐 Access URLs:"
+          echo "   HTTP:  http://mapitedu.nl"
+          echo "   HTTPS: https://mapitedu.nl"
+          echo "   Direct IP: http://${{ secrets.PRODUCTION_HOST }}"
+          echo ""
+          echo "🔍 Testing current status:"
+          
+          # Test HTTP
+          HTTP_TEST=$(curl -s -o /dev/null -w "%{http_code}" -m 5 http://mapitedu.nl 2>/dev/null || echo "FAILED")
+          echo "   HTTP Test: $HTTP_TEST"
+          
+          # Test HTTPS  
+          HTTPS_TEST=$(curl -s -o /dev/null -w "%{http_code}" -m 5 -k https://mapitedu.nl 2>/dev/null || echo "FAILED")
+          echo "   HTTPS Test: $HTTPS_TEST"
+          
+          echo ""
+          if [ "$HTTPS_TEST" = "200" ]; then
+            echo "✅ HTTPS is working - SSL setup successful!"
+            echo "🔒 Recommended URL: https://mapitedu.nl"
+          elif [ "$HTTP_TEST" = "200" ]; then
+            echo "⚠️ HTTP is working but HTTPS failed"
+            echo "🌐 Working URL: http://mapitedu.nl"
+            echo "💡 Check SSL certificate logs above for troubleshooting"
+          else
+            echo "❌ Both HTTP and HTTPS tests failed"
+            echo "🔍 Manual verification needed"
+          fi
+          
+          echo ""
+          echo "🛠️ For troubleshooting:"
+          echo "   - SSH: ssh ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }}"
+          echo "   - Logs: sudo docker logs mapit_nginx_prod"
+          echo "   - Status: sudo docker ps"
+          
+        else
+          echo "❌ Deployment Status: FAILED"
+          echo ""
+          echo "🔍 Troubleshooting steps:"
+          echo "1. Check the GitHub Actions logs above for specific errors"
+          echo "2. Verify SSH connection to the server"
+          echo "3. Check if containers are running: sudo docker ps"
+          echo "4. Review container logs: sudo docker logs <container_name>"
+          echo ""
+          echo "📞 Manual intervention may be required"
+        fi
+        
+        echo ""
+        echo "📅 Deployment completed at: $(date)"
+        echo "🏷️ Git commit: ${{ github.sha }}"

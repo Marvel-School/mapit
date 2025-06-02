@@ -14,48 +14,43 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Setup SSH Key (Alternative Method)
+    - name: Setup SSH Key
       run: |
         mkdir -p ~/.ssh
         chmod 700 ~/.ssh
-        # Write SSH private key using base64 to avoid special character issues
         echo "${{ secrets.SSH_PRIVATE_KEY }}" | tr -d '\r' > ~/.ssh/id_rsa
         chmod 600 ~/.ssh/id_rsa
-        
-        # Add server to known hosts
         ssh-keyscan -H ${{ secrets.PRODUCTION_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
-        
-        # Verify key format
-        echo "🔍 SSH Key validation:"
-        if [[ $(head -1 ~/.ssh/id_rsa) == "-----BEGIN"* ]]; then
-          echo "✅ SSH key starts with proper header"
-        else
-          echo "❌ SSH key missing proper header"
-          echo "First line: $(head -1 ~/.ssh/id_rsa)"
-        fi
-        
-        if [[ $(tail -1 ~/.ssh/id_rsa) == "-----END"* ]]; then
-          echo "✅ SSH key ends with proper footer"
-        else
-          echo "❌ SSH key missing proper footer"
-          echo "Last line: $(tail -1 ~/.ssh/id_rsa)"
-        fi
-          # Test if key is readable
-        ssh-keygen -l -f ~/.ssh/id_rsa && echo "✅ SSH key is valid" || echo "❌ SSH key validation failed"
 
     - name: Test SSH connection
       run: |
         echo "🔐 Testing SSH connection to ${{ secrets.PRODUCTION_HOST }}..."
-        ssh -vvv -o StrictHostKeyChecking=no -o ConnectTimeout=30 -o BatchMode=yes ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }} "echo 'SSH connection successful'"
+        ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }} "echo 'SSH connection successful'"
 
-    - name: Create deployment directory
+    - name: Check server configuration
+      run: |
+        ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }} "
+          echo '🔍 Server configuration check:'
+          echo '   OS Info:' && uname -a
+          echo '   Docker version:' && docker --version
+          echo '   Docker Compose version:' && docker compose version
+          
+          echo '🔥 UFW firewall status:'
+          sudo ufw status || echo 'UFW not available'
+          
+          echo '🌐 Network interface status:'
+          ip addr show | grep -E 'inet.*global' || echo 'Could not get network info'
+          
+          echo '📂 Checking deployment directory:'
+          ls -la /opt/mapit/ || echo 'Directory not found'
+        "    - name: Create deployment directory
       run: |
         ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }} "
           sudo mkdir -p /opt/mapit/current
           sudo mkdir -p /opt/mapit/current/storage/logs
           sudo mkdir -p /opt/mapit/current/storage/uploads
           sudo mkdir -p /opt/mapit/current/docker/production/ssl
-          sudo chown -R deploy:deploy /opt/mapit
+          sudo chown -R ${{ secrets.SSH_USER }}:${{ secrets.SSH_USER }} /opt/mapit
         "
 
     - name: Copy application files
@@ -121,18 +116,19 @@ jobs:
 
         # SSL Configuration
         SSL_ENABLED=true
-        FORCE_HTTPS=true
-
-        # Performance
+        FORCE_HTTPS=true        # Performance
         OPCACHE_ENABLED=true
         REDIS_CACHE_TTL=3600
 
         # Admin Settings
-        ADMIN_EMAIL=${{ secrets.ADMIN_EMAIL || 'admin@mapitedu.nl' }}        # Redis Configuration
+        ADMIN_EMAIL=${{ secrets.ADMIN_EMAIL || 'admin@mapitedu.nl' }}
+        
+        # Redis Configuration
         REDIS_HOST=redis
         REDIS_PORT=6379
         REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
-        EOF        "
+        EOF
+        "
 
     - name: Set permissions
       run: |
@@ -143,28 +139,51 @@ jobs:
           sudo chmod -R 775 /opt/mapit/current/public
         "
 
-    - name: Deploy with Docker Compose (HTTP first)
+    - name: Deploy with Docker Compose
       run: |
         ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }} "
           cd /opt/mapit/current
+          echo '🔧 Stopping any existing containers...'
           sudo docker compose -f docker-compose.production.yml down || true
-          sudo docker compose -f docker-compose.production.yml up -d --build nginx php mysql redis
+          
+          echo '🧹 Cleaning up old containers and images...'
+          sudo docker container prune -f || true
+          sudo docker image prune -f || true
+          
+          echo '🚀 Starting new containers...'
+          sudo docker compose -f docker-compose.production.yml up -d --build
+          
+          echo '📋 Container status:'
+          sudo docker compose -f docker-compose.production.yml ps
+          
+          echo '📝 Container logs (last 20 lines):'
+          sudo docker compose -f docker-compose.production.yml logs --tail=20
         "
 
-    - name: Wait for HTTP services to start
+    - name: Wait for services and check status
       run: |
         ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }} "
-          echo 'Waiting for HTTP services to start...'
-          sleep 45
+          echo '⏳ Waiting for services to start...'
+          sleep 60
+          
+          echo '🔍 Final container status:'
           sudo docker compose -f /opt/mapit/current/docker-compose.production.yml ps
-        "
-
-    - name: Test HTTP connectivity
+          
+          echo '📊 Port bindings:'
+          sudo docker port \$(sudo docker compose -f /opt/mapit/current/docker-compose.production.yml ps -q nginx) 2>/dev/null || echo 'Nginx container not found'
+          
+          echo '🌐 Testing local HTTP connectivity:'
+          curl -I -m 10 http://localhost/ || echo 'Local HTTP test failed'
+          
+          echo '📝 Recent nginx logs:'
+          sudo docker logs \$(sudo docker compose -f /opt/mapit/current/docker-compose.production.yml ps -q nginx) --tail 30 2>/dev/null || echo 'Could not get nginx logs'
+        "    - name: Test HTTP connectivity
       run: |
         echo "Testing HTTP connectivity..."
         sleep 30
         if curl -f -s -m 10 http://${{ secrets.PRODUCTION_HOST }}/ > /dev/null; then
-          echo "✅ HTTP site is accessible"        else
+          echo "✅ HTTP site is accessible"
+        else
           echo "❌ HTTP site is not accessible - checking logs..."
           ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }} "sudo docker logs mapit_nginx_prod --tail 20"
         fi

@@ -277,31 +277,27 @@ jobs:
                 echo '❌ HTTPS config file not found'
                 echo '🔍 Available nginx configs:'
                 ls -la docker/production/nginx/ || echo 'Cannot list nginx configs'
-              fi
+              fi              echo '🔄 Switching to HTTPS configuration:'
+              echo '🔍 Preparing HTTPS configuration file...'
               
-              echo '🔄 Switching to HTTPS configuration:'
-              echo '🔍 Stopping nginx container for config replacement...'
+              # Replace the mounted config file with HTTPS version
+              cp docker/production/nginx/https.conf docker/production/nginx/http-only-fixed.conf
+              echo '✅ HTTPS config prepared'
+              
+              echo '🔍 Recreating nginx container with HTTPS config...'
               export DB_PASSWORD='${{ secrets.DB_PASSWORD }}'
-              sudo -E docker compose -f docker-compose.production.yml stop nginx
-              echo '✅ Nginx container stopped'
-              sleep 5
               
-              echo '🔍 Copying HTTPS configuration to container...'
-              if sudo docker cp docker/production/nginx/https.conf mapit_nginx_prod:/etc/nginx/conf.d/default.conf; then
-                echo '✅ HTTPS config copied to container'
-                
-                echo '🔍 Starting nginx container with new config...'
-                sudo -E docker compose -f docker-compose.production.yml start nginx
-                echo '✅ Nginx container restarted with HTTPS config'                
-                echo '🔍 Waiting for nginx to start...'
-                sleep 15
-              else
-                echo '❌ Failed to copy HTTPS config'
-                echo '🔄 Starting nginx container with original config...'
-                sudo -E docker compose -f docker-compose.production.yml start nginx
-                echo '⚠️ Reverted to HTTP configuration due to HTTPS config copy failure'
-                exit 1
-              fi
+              # Recreate nginx container to pick up the new config
+              sudo -E docker compose -f docker-compose.production.yml stop nginx
+              sudo -E docker compose -f docker-compose.production.yml rm -f nginx
+              echo '✅ Nginx container removed'
+              
+              # Start nginx with the new config (will mount the updated file)
+              sudo -E docker compose -f docker-compose.production.yml up -d nginx
+              echo '✅ Nginx container recreated with HTTPS config'
+              
+              echo '🔍 Waiting for nginx to start with HTTPS config...'
+              sleep 20
               
               echo '🔍 Verifying config was copied:'
               sudo docker exec mapit_nginx_prod ls -la /etc/nginx/conf.d/ || echo 'Cannot list nginx config directory'

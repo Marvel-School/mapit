@@ -24,11 +24,11 @@
     container_name: mapit_nginx_prod
     ports:
       - "80:80"
-      - "443:443"
+      - "443:443"    
     volumes:
       - ./public:/var/www/html/public:ro
       - ./storage/logs/nginx:/var/log/nginx
-      - ./docker/production/nginx/http.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./docker/production/nginx/https.conf:/etc/nginx/conf.d/default.conf:ro
       - certbot_www:/var/www/certbot
       - certbot_conf:/etc/nginx/ssl:ro
     networks:

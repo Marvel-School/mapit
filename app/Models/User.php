@@ -8,40 +8,32 @@ class User extends Model
 {    protected $table = 'users';    protected $fillable = [
         'username', 'email', 'password', 'password_hash', 'role', 'name', 'bio', 'country', 'website', 'avatar', 'settings', 'last_login'
     ];
-    
-    /**
+      /**
      * Get the password column name based on database schema
      * 
      * @return string
      */
     private function getPasswordColumn()
     {
-        static $passwordColumn = null;
-        
-        if ($passwordColumn === null) {
-            try {
-                $db = \App\Core\Database::getInstance();
-                $db->query("DESCRIBE users");
-                $columns = $db->resultSet();
-                
-                foreach ($columns as $column) {
-                    if ($column['Field'] === 'password_hash') {
-                        $passwordColumn = 'password_hash';
-                        break;
-                    } else if ($column['Field'] === 'password') {
-                        $passwordColumn = 'password';
-                        break;
-                    }
+        try {
+            $db = \App\Core\Database::getInstance();
+            $db->query("SHOW COLUMNS FROM users LIKE 'password%'");
+            $columns = $db->resultSet();
+            
+            foreach ($columns as $column) {
+                if ($column['Field'] === 'password_hash') {
+                    return 'password_hash';
+                } else if ($column['Field'] === 'password') {
+                    return 'password';
                 }
-                
-                // Default to password_hash if neither found
-                $passwordColumn = $passwordColumn ?: 'password_hash';
-            } catch (\Exception $e) {
-                $passwordColumn = 'password_hash'; // fallback
             }
+            
+            // Default fallback
+            return 'password_hash';
+        } catch (\Exception $e) {
+            // Fallback in case of error
+            return 'password_hash';
         }
-        
-        return $passwordColumn;
     }
     
     /**
@@ -76,12 +68,25 @@ class User extends Model
         $logModel = new \App\Models\Log();
         $logModel::write('DEBUG', "Registration attempt", ['username' => $data['username'], 'email' => $data['email']], 'Authentication');
         
-        $passwordColumn = $this->getPasswordColumn();
-        $data[$passwordColumn] = password_hash($data['password'], PASSWORD_DEFAULT);
-        unset($data['password']);
-        unset($data['password_confirm']);
+        // Try password first (production), then password_hash (local)
+        $hashedPassword = password_hash($data['password'], PASSWORD_DEFAULT);
         
-        $userId = $this->create($data);
+        // First try with 'password' column
+        try {
+            $data['password'] = $hashedPassword;
+            unset($data['password_confirm']);
+            $userId = $this->create($data);
+            
+            if ($userId) {
+                $logModel::write('INFO', "Registration successful", ['user_id' => $userId, 'username' => $data['username']], 'Authentication');
+            }
+            return $userId;
+        } catch (\Exception $e) {
+            // If 'password' column fails, try 'password_hash'
+            unset($data['password']);
+            $data['password_hash'] = $hashedPassword;
+            
+            $userId = $this->create($data);
         
         if ($userId) {
             $logModel::write('INFO', "Registration successful", ['user_id' => $userId, 'username' => $data['username']], 'Authentication');

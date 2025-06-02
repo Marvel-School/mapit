@@ -341,6 +341,66 @@ class AuthController extends Controller
     }
 
     /**
+     * Migration endpoint to update production database schema
+     * WARNING: This should only be used once and then removed
+     * 
+     * @return void
+     */
+    public function migrateProdSchema()
+    {
+        try {
+            $db = Database::getInstance();
+            
+            // Execute migration queries one by one
+            $migrations = [
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash varchar(255) DEFAULT NULL AFTER email",
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS name varchar(100) DEFAULT NULL AFTER password_hash",
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS bio text DEFAULT NULL AFTER name",
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS country varchar(2) DEFAULT NULL AFTER bio",
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS website varchar(255) DEFAULT NULL AFTER country",
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar varchar(255) DEFAULT NULL AFTER website",
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS settings json DEFAULT NULL AFTER avatar",
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login timestamp DEFAULT NULL AFTER settings",
+                "ALTER TABLE users MODIFY COLUMN role enum('user','admin','moderator') NOT NULL DEFAULT 'user'",
+                "UPDATE users SET password_hash = password WHERE password_hash IS NULL AND password IS NOT NULL",
+                "ALTER TABLE users MODIFY COLUMN password_hash varchar(255) NOT NULL",
+                "ALTER TABLE users DROP COLUMN IF EXISTS password"
+            ];
+            
+            $results = [];
+            foreach ($migrations as $sql) {
+                try {
+                    $db->query($sql);
+                    $results[] = "SUCCESS: " . $sql;
+                } catch (\Exception $e) {
+                    $results[] = "ERROR: " . $sql . " - " . $e->getMessage();
+                }
+            }
+            
+            // Get final schema
+            $db->query("DESCRIBE users");
+            $finalSchema = $db->resultSet();
+            
+            $this->cleanJsonResponse([
+                'success' => true,
+                'message' => 'Migration completed',
+                'data' => [
+                    'migration_results' => $results,
+                    'final_schema' => $finalSchema,
+                    'timestamp' => date('Y-m-d H:i:s')
+                ]
+            ], 200);
+            
+        } catch (\Exception $e) {
+            $this->cleanJsonResponse([
+                'success' => false,
+                'message' => 'Migration failed: ' . $e->getMessage(),
+                'error_code' => 'MIGRATION_ERROR'
+            ], 500);
+        }
+    }
+
+    /**
      * Send clean JSON response by discarding any previous output
      * 
      * @param array $data

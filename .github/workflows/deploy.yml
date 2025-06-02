@@ -179,23 +179,46 @@ jobs:
           echo '🔍 Checking if domain points to this server...'
           SERVER_IP=\$(curl -s ifconfig.me)
           echo '   Server IP: '\$SERVER_IP
-          
-          # Test if the domain resolves to this server by checking HTTP access
+            # Test if the domain resolves to this server by checking HTTP access
           echo '🌐 Testing HTTP access to domain...'
           if curl -f -s -m 10 -H 'Host: mapitedu.nl' http://localhost/ > /dev/null; then
             echo '✅ Domain is accessible via HTTP, proceeding with SSL setup'
             
-            # Create certbot webroot directory
-            sudo mkdir -p /var/lib/docker/volumes/mapit_prod_network_certbot_www/_data
-            sudo chmod 755 /var/lib/docker/volumes/mapit_prod_network_certbot_www/_data
+            # Check if SSL certificates already exist and are valid
+            echo '🔍 Checking for existing SSL certificates...'
+            if sudo docker run --rm -v current_certbot_conf:/certs alpine test -f /certs/live/mapitedu.nl/fullchain.pem; then
+              # Check if certificates are still valid (not expiring in next 30 days)
+              CERT_EXPIRY=$(sudo docker run --rm -v current_certbot_conf:/certs alpine sh -c \"openssl x509 -in /certs/live/mapitedu.nl/fullchain.pem -noout -enddate | cut -d= -f2\")
+              EXPIRY_EPOCH=$(date -d \"\$CERT_EXPIRY\" +%s)
+              THIRTY_DAYS_FROM_NOW=$(date -d '+30 days' +%s)
+              
+              if [ \$EXPIRY_EPOCH -gt \$THIRTY_DAYS_FROM_NOW ]; then
+                echo '✅ Valid SSL certificates found (expires: '\$CERT_EXPIRY')'
+                echo '⏭️  Skipping certificate request to avoid rate limits'
+                CERTS_EXIST=true
+              else
+                echo '⚠️  SSL certificates expire soon ('\$CERT_EXPIRY'), will renew'
+                CERTS_EXIST=false
+              fi
+            else
+              echo '❌ No SSL certificates found'
+              CERTS_EXIST=false
+            fi
             
-            # Get SSL certificates using certbot
-            echo '📋 Requesting SSL certificates...'
-            sudo docker compose -f docker-compose.production.yml run --rm certbot
+            # Only request new certificates if they don't exist or are expiring soon
+            if [ \"\$CERTS_EXIST\" = \"false\" ]; then
+              # Create certbot webroot directory
+              sudo mkdir -p /var/lib/docker/volumes/current_certbot_www/_data
+              sudo chmod 755 /var/lib/docker/volumes/current_certbot_www/_data
+              
+              # Get SSL certificates using certbot
+              echo '📋 Requesting SSL certificates...'
+              sudo docker compose -f docker-compose.production.yml run --rm certbot
+            fi
             
-            # Check if certificates were created
-            if sudo docker volume inspect mapit_prod_network_certbot_conf >/dev/null 2>&1; then
-              echo '✅ SSL certificates obtained successfully'
+            # Check if certificates are available (either existing or newly created)
+            if sudo docker run --rm -v current_certbot_conf:/certs alpine test -f /certs/live/mapitedu.nl/fullchain.pem; then
+              echo '✅ SSL certificates are available'
               
               # Switch to HTTPS configuration
               echo '🔄 Switching to HTTPS configuration...'

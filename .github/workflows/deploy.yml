@@ -121,18 +121,19 @@ jobs:
 
         # SSL Configuration
         SSL_ENABLED=true
-        FORCE_HTTPS=true
-
-        # Performance
+        FORCE_HTTPS=true        # Performance
         OPCACHE_ENABLED=true
         REDIS_CACHE_TTL=3600
 
         # Admin Settings
-        ADMIN_EMAIL=${{ secrets.ADMIN_EMAIL || 'admin@mapitedu.nl' }}        # Redis Configuration
+        ADMIN_EMAIL=${{ secrets.ADMIN_EMAIL || 'admin@mapitedu.nl' }}
+
+        # Redis Configuration
         REDIS_HOST=redis
         REDIS_PORT=6379
         REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
-        EOF        "
+        EOF
+        "
 
     - name: Set permissions
       run: |
@@ -147,8 +148,9 @@ jobs:
       run: |
         ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }} "
           cd /opt/mapit/current
-          sudo docker compose -f docker-compose.production.yml down || true
-          sudo docker compose -f docker-compose.production.yml up -d --build nginx php mysql redis
+          export DB_PASSWORD='${{ secrets.DB_PASSWORD }}'
+          sudo -E docker compose -f docker-compose.production.yml down || true
+          sudo -E docker compose -f docker-compose.production.yml up -d --build nginx php mysql redis
         "
 
     - name: Wait for HTTP services to start
@@ -186,10 +188,10 @@ jobs:
             # Create certbot webroot directory
             sudo mkdir -p /var/lib/docker/volumes/mapit_prod_network_certbot_www/_data
             sudo chmod 755 /var/lib/docker/volumes/mapit_prod_network_certbot_www/_data
-            
-            # Get SSL certificates using certbot
+              # Get SSL certificates using certbot
             echo '📋 Requesting SSL certificates...'
-            sudo docker compose -f docker-compose.production.yml run --rm certbot
+            export DB_PASSWORD='${{ secrets.DB_PASSWORD }}'
+            sudo -E docker compose -f docker-compose.production.yml run --rm certbot
             
             # Check if certificates were created
             if sudo docker volume inspect mapit_prod_network_certbot_conf >/dev/null 2>&1; then

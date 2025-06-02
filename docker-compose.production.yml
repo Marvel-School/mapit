@@ -1,4 +1,4 @@
-services:
+﻿services:
   # PHP Application
   php:
     build:
@@ -81,18 +81,17 @@ services:
             location /.well-known/acme-challenge/ {
                 root /var/www/certbot;
             }
-        }' > /etc/nginx/conf.d/default.conf &&
-        nginx -g 'daemon off;'"
+        }' > /etc/nginx/conf.d/default.conf &&        nginx -g 'daemon off;'"
 
   # MySQL Database
   mysql:
     image: mysql:8.0
     container_name: mapit_mysql_prod
     environment:
-      MYSQL_ROOT_PASSWORD: root_password_123
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_password_123}
       MYSQL_DATABASE: mapit_production
       MYSQL_USER: mapit_prod_user
-      MYSQL_PASSWORD: prod_db_password_456
+      MYSQL_PASSWORD: ${DB_PASSWORD:-prod_db_password_456}
       TZ: Europe/Amsterdam
     volumes:
       - mysql_data:/var/lib/mysql

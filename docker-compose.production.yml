@@ -10,7 +10,8 @@
     volumes:
       - ./storage:/var/www/html/storage
       - ./storage/logs:/var/www/html/logs
-      - ./.env:/var/www/html/.env    networks:
+      - ./.env:/var/www/html/.env
+    networks:
       - prod_network
     depends_on:
       - mysql

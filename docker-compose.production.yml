@@ -1,4 +1,4 @@
-﻿services:
+services:
   # PHP Application
   php:
     build:
@@ -9,7 +9,8 @@
       TZ: Europe/Amsterdam
     volumes:
       - ./storage:/var/www/html/storage
-      - ./storage/logs:/var/www/html/logs      - ./.env:/var/www/html/.env
+      - ./storage/logs:/var/www/html/logs
+      - ./.env:/var/www/html/.env
     networks:
       - prod_network
     depends_on:
@@ -27,7 +28,8 @@
     volumes:
       - ./public:/var/www/html/public:ro
       - ./storage/logs/nginx:/var/log/nginx
-      - certbot_www:/var/www/certbot      - certbot_conf:/etc/nginx/ssl:ro
+      - certbot_www:/var/www/certbot
+      - certbot_conf:/etc/nginx/ssl:ro
     networks:
       - prod_network
     depends_on:
@@ -92,7 +94,8 @@
       MYSQL_USER: mapit_prod_user
       MYSQL_PASSWORD: prod_db_password_456
       TZ: Europe/Amsterdam
-    volumes:      - mysql_data:/var/lib/mysql
+    volumes:
+      - mysql_data:/var/lib/mysql
     networks:
       - prod_network
     restart: unless-stopped
@@ -101,7 +104,8 @@
   redis:
     image: redis:7-alpine
     container_name: mapit_redis_prod
-    volumes:      - redis_data:/data
+    volumes:
+      - redis_data:/data
     networks:
       - prod_network
     restart: unless-stopped

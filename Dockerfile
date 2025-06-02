@@ -46,7 +46,7 @@ RUN mkdir -p /var/www/html/storage/logs \
     && chmod -R 777 /var/www/html/storage
 
 # Configure PHP-FPM for production
-RUN cat > /usr/local/etc/php-fpm.d/www.conf << 'EOF'
+RUN cat > /usr/local/etc/php-fpm.d/www.conf <<'EOF'
 [www]
 user = www-data
 group = www-data
@@ -64,7 +64,7 @@ chdir = /var/www/html
 EOF
 
 # Configure PHP for production
-RUN cat > /usr/local/etc/php/php.ini << 'EOF'
+RUN cat > /usr/local/etc/php/php.ini <<'EOF'
 ; PHP Production Configuration
 [PHP]
 engine = On
@@ -140,7 +140,7 @@ session.sid_bits_per_character = 5
 EOF
 
 # Create entrypoint script
-RUN cat > /usr/local/bin/entrypoint.sh << 'EOF'
+RUN cat > /usr/local/bin/entrypoint.sh <<'EOF'
 #!/bin/bash
 set -e
 
@@ -159,7 +159,8 @@ chmod -R 777 /var/www/html/storage
 exec "$@"
 EOF
 
-RUN chmod +x /usr/local/bin/entrypoint.sh
+# Fix line endings and make executable
+RUN sed -i 's/\r$//' /usr/local/bin/entrypoint.sh && chmod +x /usr/local/bin/entrypoint.sh
 
 # Expose port 9000 for PHP-FPM
 EXPOSE 9000

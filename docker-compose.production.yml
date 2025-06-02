@@ -1,6 +1,5 @@
-﻿version: '3.8'
-
-services:  # PHP Application
+﻿services:
+  # PHP Application
   php:
     build:
       context: .
@@ -10,10 +9,9 @@ services:  # PHP Application
       TZ: Europe/Amsterdam
     volumes:
       - ./storage:/var/www/html/storage
-      - ./storage/logs:/var/www/html/logs
-      - ./.env:/var/www/html/.env
+      - ./storage/logs:/var/www/html/logs      - ./.env:/var/www/html/.env
     networks:
-      - mapit_network
+      - prod_network
     depends_on:
       - mysql
       - redis
@@ -29,10 +27,9 @@ services:  # PHP Application
     volumes:
       - ./public:/var/www/html/public:ro
       - ./storage/logs/nginx:/var/log/nginx
-      - certbot_www:/var/www/certbot
-      - certbot_conf:/etc/nginx/ssl:ro
+      - certbot_www:/var/www/certbot      - certbot_conf:/etc/nginx/ssl:ro
     networks:
-      - mapit_network
+      - prod_network
     depends_on:
       - php
     restart: unless-stopped
@@ -95,20 +92,18 @@ services:  # PHP Application
       MYSQL_USER: mapit_prod_user
       MYSQL_PASSWORD: prod_db_password_456
       TZ: Europe/Amsterdam
-    volumes:
-      - mysql_data:/var/lib/mysql
+    volumes:      - mysql_data:/var/lib/mysql
     networks:
-      - mapit_network
+      - prod_network
     restart: unless-stopped
 
   # Redis Cache
   redis:
     image: redis:7-alpine
     container_name: mapit_redis_prod
-    volumes:
-      - redis_data:/data
+    volumes:      - redis_data:/data
     networks:
-      - mapit_network
+      - prod_network
     restart: unless-stopped
 
   # Let's Encrypt Certbot
@@ -141,6 +136,6 @@ volumes:
     driver: local
 
 networks:
-  mapit_network:
+  prod_network:
     driver: bridge
     name: mapit_prod_network

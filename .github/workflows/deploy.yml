@@ -37,10 +37,10 @@ jobs:
           
           echo '🔥 UFW firewall status:'
           sudo ufw status || echo 'UFW not available'
-          
-          echo '🌐 Network interface status:'
+            echo '🌐 Network interface status:'
           ip addr show | grep -E 'inet.*global' || echo 'Could not get network info'
-            echo '📂 Checking deployment directory:'
+          
+          echo '📂 Checking deployment directory:'
           ls -la /opt/mapit/ || echo 'Directory not found'
         "
 
@@ -101,9 +101,7 @@ jobs:
 
         # Security
         JWT_SECRET=${{ secrets.JWT_SECRET }}
-        ENCRYPTION_KEY=${{ secrets.ENCRYPTION_KEY }}
-
-        # File Upload Settings
+        ENCRYPTION_KEY=${{ secrets.ENCRYPTION_KEY }}        # File Upload Settings
         MAX_UPLOAD_SIZE=10485760
         ALLOWED_IMAGE_TYPES=jpg,jpeg,png,webp
 
@@ -113,7 +111,9 @@ jobs:
 
         # Logging
         LOG_LEVEL=warning
-        LOG_CHANNEL=daily        # SSL Configuration
+        LOG_CHANNEL=daily
+
+        # SSL Configuration
         SSL_ENABLED=true
         FORCE_HTTPS=true
 
@@ -133,8 +133,7 @@ jobs:
 
     - name: Set permissions
       run: |
-        ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }} "
-          sudo chown -R www-data:www-data /opt/mapit/current
+        ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }} "          sudo chown -R www-data:www-data /opt/mapit/current
           sudo chmod -R 755 /opt/mapit/current
           sudo chmod -R 775 /opt/mapit/current/storage
           sudo chmod -R 775 /opt/mapit/current/public
@@ -151,11 +150,26 @@ jobs:
           sudo docker container prune -f || true
           sudo docker image prune -f || true
           
+          echo '🔍 Testing nginx configuration syntax...'
+          sudo docker run --rm -v \$(pwd)/docker-compose.production.yml:/tmp/docker-compose.yml alpine/git sh -c 'apk add --no-cache docker-compose && echo \"Testing nginx config generation...\"' || true
+          
           echo '🚀 Starting new containers...'
           sudo docker compose -f docker-compose.production.yml up -d --build
           
+          echo '⏳ Waiting for containers to stabilize...'
+          sleep 30
+          
           echo '📋 Container status:'
           sudo docker compose -f docker-compose.production.yml ps
+          
+          echo '🔍 Checking nginx container health:'
+          if sudo docker ps | grep mapit_nginx_prod | grep -q 'Up'; then
+            echo '✅ Nginx container is running'
+          else
+            echo '❌ Nginx container failed to start'
+            echo 'Nginx container logs:'
+            sudo docker logs mapit_nginx_prod --tail 50 || echo 'Could not get nginx logs'
+          fi
           
           echo '📝 Container logs (last 20 lines):'
           sudo docker compose -f docker-compose.production.yml logs --tail=20
@@ -166,8 +180,7 @@ jobs:
         ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }} "
           echo '⏳ Waiting for services to start...'
           sleep 60
-          
-          echo '🔍 Final container status:'
+            echo '🔍 Final container status:'
           sudo docker compose -f /opt/mapit/current/docker-compose.production.yml ps
           
           echo '📊 Port bindings:'
@@ -175,7 +188,8 @@ jobs:
           
           echo '🌐 Testing local HTTP connectivity:'
           curl -I -m 10 http://localhost/ || echo 'Local HTTP test failed'
-            echo '📝 Recent nginx logs:'
+          
+          echo '📝 Recent nginx logs:'
           sudo docker logs \$(sudo docker compose -f /opt/mapit/current/docker-compose.production.yml ps -q nginx) --tail 30 2>/dev/null || echo 'Could not get nginx logs'
         "
 

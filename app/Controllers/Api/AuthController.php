@@ -61,15 +61,13 @@ class AuthController extends Controller
                     'error_code' => 'INVALID_JSON'
                 ], 400);
                 return;
-            }
-
-            // Validate required fields
-            $username = $this->sanitizeInput($input['username'] ?? '');
+            }            // Validate required fields - accept either username or email
+            $username = $this->sanitizeInput($input['username'] ?? $input['email'] ?? '');
             $password = $input['password'] ?? '';
 
             $errors = [];
             if (empty($username)) {
-                $errors['username'] = 'Username or email is required';
+                $errors['login'] = 'Username or email is required';
             }
             if (empty($password)) {
                 $errors['password'] = 'Password is required';

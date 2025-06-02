@@ -272,46 +272,35 @@ jobs:
               if [ -f docker/production/nginx/https.conf ]; then
                 echo '✅ HTTPS config file exists'
                 echo '🔍 Config file preview:'
-                head -10 docker/production/nginx/https.conf
-              else
+                head -10 docker/production/nginx/https.conf              else
                 echo '❌ HTTPS config file not found'
                 echo '🔍 Available nginx configs:'
                 ls -la docker/production/nginx/ || echo 'Cannot list nginx configs'
               fi
               
               echo '🔄 Switching to HTTPS configuration:'
-              echo '🔍 Preparing HTTPS configuration file...'
-              
-              # Replace the mounted config file with HTTPS version
-              cp docker/production/nginx/https.conf docker/production/nginx/http-only-fixed.conf
-              echo '✅ HTTPS config prepared'
-              
               echo '🔍 Recreating nginx container with HTTPS config...'
               export DB_PASSWORD='${{ secrets.DB_PASSWORD }}'
               
-              # Recreate nginx container to pick up the new config
-              sudo -E docker compose -f docker-compose.production.yml stop nginx
-              sudo -E docker compose -f docker-compose.production.yml rm -f nginx
-              echo '✅ Nginx container removed'
-              
-              # Start nginx with the new config (will mount the updated file)
-              sudo -E docker compose -f docker-compose.production.yml up -d nginx
-              echo '✅ Nginx container recreated with HTTPS config'
+              # Recreate nginx container to pick up HTTPS config (docker-compose now mounts https.conf directly)
+              sudo -E docker compose -f docker-compose.production.yml restart nginx
+              echo '✅ Nginx container restarted with HTTPS config'
               
               echo '🔍 Waiting for nginx to start with HTTPS config...'
               sleep 20
               
-              echo '🔍 Verifying config was copied:'
-              sudo docker exec mapit_nginx_prod ls -la /etc/nginx/conf.d/ || echo 'Cannot list nginx config directory'              echo '🔍 Config file content in container:'
-              sudo docker exec mapit_nginx_prod head -5 /etc/nginx/conf.d/default.conf || echo 'Cannot read config file in container'
+              echo '🔍 Verifying HTTPS config is active:'
+              sudo docker exec mapit_nginx_prod ls -la /etc/nginx/conf.d/ || echo 'Cannot list nginx config directory'
+              echo '🔍 Config file content in container:'
+              sudo docker exec mapit_nginx_prod head -10 /etc/nginx/conf.d/default.conf || echo 'Cannot read config file in container'
               
               echo '🔍 Testing nginx configuration:'
-              NGINX_TEST_OUTPUT=\$(sudo docker exec mapit_nginx_prod nginx -t 2>&1)
-              NGINX_TEST_EXIT_CODE=\$?
-              echo '   Nginx test output: '\$NGINX_TEST_OUTPUT
-              echo '   Nginx test exit code: '\$NGINX_TEST_EXIT_CODE
+              NGINX_TEST_OUTPUT=$(sudo docker exec mapit_nginx_prod nginx -t 2>&1)
+              NGINX_TEST_EXIT_CODE=$?
+              echo '   Nginx test output: '$NGINX_TEST_OUTPUT
+              echo '   Nginx test exit code: '$NGINX_TEST_EXIT_CODE
               
-              if [ \$NGINX_TEST_EXIT_CODE -eq 0 ]; then
+              if [ $NGINX_TEST_EXIT_CODE -eq 0 ]; then
                 echo '✅ Nginx configuration test passed'
                 echo '🔍 Checking nginx container status:'
                 sudo docker ps | grep mapit_nginx_prod || echo 'Cannot find nginx container'
@@ -319,35 +308,30 @@ jobs:
                 echo '🔍 Testing HTTPS connectivity:'
                 sleep 10  # Give nginx time to stabilize
                 for attempt in 1 2 3; do
-                  echo \"   HTTPS test attempt \$attempt/3:\"
-                  HTTPS_RESPONSE=\$(curl -s -o /dev/null -w '%{http_code}' -m 15 -k https://mapitedu.nl/ 2>&1 || echo 'HTTPS_FAILED')
-                  echo \"   Response: \$HTTPS_RESPONSE\"
+                  echo "   HTTPS test attempt $attempt/3:"
+                  HTTPS_RESPONSE=$(curl -s -o /dev/null -w '%{http_code}' -m 15 -k https://mapitedu.nl/ 2>&1 || echo 'HTTPS_FAILED')
+                  echo "   Response: $HTTPS_RESPONSE"
                   
-                  if [ \"\$HTTPS_RESPONSE\" = \"200\" ]; then
+                  if [ "$HTTPS_RESPONSE" = "200" ]; then
                     echo '🚀 HTTPS is now active and working!'
                     echo '📍 Your site is available at: https://mapitedu.nl'
                     break
-                  elif [ \$attempt -eq 3 ]; then
+                  elif [ $attempt -eq 3 ]; then
                     echo '❌ HTTPS test failed after 3 attempts'
                     echo '🔍 Final debugging:'
                     echo '   Nginx error logs:'
-                    sudo docker logs mapit_nginx_prod --tail 15 | grep -i error || echo 'No recent errors'                    echo '   Nginx access logs:'
+                    sudo docker logs mapit_nginx_prod --tail 15 | grep -i error || echo 'No recent errors'
+                    echo '   Nginx access logs:'
                     sudo docker logs mapit_nginx_prod --tail 10 | grep -v error || echo 'No recent access logs'
                   else
-                    echo \"   Waiting before retry...\"
+                    echo "   Waiting before retry..."
                     sleep 5
                   fi
                 done
               else
                 echo '❌ HTTPS configuration test failed'
-                echo '🔄 Reverting to HTTP configuration:'
-                export DB_PASSWORD='${{ secrets.DB_PASSWORD }}'
-                sudo -E docker compose -f docker-compose.production.yml stop nginx
-                echo '✅ Nginx container stopped for config revert'
-                sleep 5
-                sudo docker cp docker/production/nginx/http-only-fixed.conf mapit_nginx_prod:/etc/nginx/conf.d/default.conf
-                sudo -E docker compose -f docker-compose.production.yml start nginx
-                echo '✅ Reverted to HTTP configuration'
+                echo '🔍 Nginx configuration errors:'
+                echo "$NGINX_TEST_OUTPUT"
               fi
             else
               echo '❌ SSL certificate files not found after certbot'

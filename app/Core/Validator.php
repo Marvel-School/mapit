@@ -2,6 +2,8 @@
 
 namespace App\Core;
 
+use App\Core\Database;
+
 class Validator
 {
     protected $errors = [];

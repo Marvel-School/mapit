@@ -20,8 +20,10 @@ This document provides instructions for deploying MapIt to production.
 - ✅ GitHub Actions deployment workflow configured and triggered
 - ✅ Local production testing completed successfully
 - ✅ Production stack running: PHP-FPM, MySQL, Redis, Nginx
-- ✅ SSL/TLS certificates managed by Let's Encrypt (rate limit reached, certificates exist)
-- ✅ Production site accessible at http://localhost (local testing)
+- ✅ SSL/TLS certificates managed by Let's Encrypt
+- 🌐 **Production Server**: 142.93.136.145
+- 🌍 **Production Domain**: mapitedu.nl → 142.93.136.145
+- ✅ Production site accessible at http://142.93.136.145 and https://mapitedu.nl
 
 ### Deployment Summary:
 - **Docker Build Time**: ~5.8 seconds (optimized)
@@ -105,9 +107,22 @@ cd /opt/mapit/current
 sudo docker-compose -f docker-compose.production.yml up -d --build
 ```
 
+## Production Access
+
+### Live Production Site:
+- **Primary URL**: https://mapitedu.nl
+- **Direct IP Access**: http://142.93.136.145
+- **Health Check**: https://mapitedu.nl/health
+
+### Server Information:
+- **IP Address**: 142.93.136.145
+- **Domain**: mapitedu.nl
+- **SSL**: Let's Encrypt certificates
+- **Docker Location**: /opt/mapit/current/
+
 ## Health Check
 
-Check application health at: `https://your-domain.com/health`
+Check application health at: `https://mapitedu.nl/health`
 
 ## Support
 

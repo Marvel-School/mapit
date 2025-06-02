@@ -40,10 +40,11 @@ jobs:
           
           echo '🌐 Network interface status:'
           ip addr show | grep -E 'inet.*global' || echo 'Could not get network info'
-          
-          echo '📂 Checking deployment directory:'
+            echo '📂 Checking deployment directory:'
           ls -la /opt/mapit/ || echo 'Directory not found'
-        "    - name: Create deployment directory
+        "
+
+    - name: Create deployment directory
       run: |
         ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }} "
           sudo mkdir -p /opt/mapit/current
@@ -112,11 +113,11 @@ jobs:
 
         # Logging
         LOG_LEVEL=warning
-        LOG_CHANNEL=daily
-
-        # SSL Configuration
+        LOG_CHANNEL=daily        # SSL Configuration
         SSL_ENABLED=true
-        FORCE_HTTPS=true        # Performance
+        FORCE_HTTPS=true
+
+        # Performance
         OPCACHE_ENABLED=true
         REDIS_CACHE_TTL=3600
 
@@ -174,10 +175,11 @@ jobs:
           
           echo '🌐 Testing local HTTP connectivity:'
           curl -I -m 10 http://localhost/ || echo 'Local HTTP test failed'
-          
-          echo '📝 Recent nginx logs:'
+            echo '📝 Recent nginx logs:'
           sudo docker logs \$(sudo docker compose -f /opt/mapit/current/docker-compose.production.yml ps -q nginx) --tail 30 2>/dev/null || echo 'Could not get nginx logs'
-        "    - name: Test HTTP connectivity
+        "
+
+    - name: Test HTTP connectivity
       run: |
         echo "Testing HTTP connectivity..."
         sleep 30

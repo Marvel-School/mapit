@@ -5,6 +5,7 @@
 .env.development
 .env.test
 .env.*
+!.env.example
 
 # VS Code files that might cause cache issues
 .vscode/*

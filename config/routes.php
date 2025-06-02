@@ -74,6 +74,7 @@ $this->get('api/public/destinations/{id}', 'Api\PublicDestinationController', 's
 $this->get('api/health', 'Api\AuthController', 'healthCheck');
 $this->get('api/debug/schema', 'Api\AuthController', 'debugSchema');
 $this->post('api/migrate/schema', 'Api\AuthController', 'migrateProdSchema');
+$this->post('api/migrate/schema-fixed', 'Api\AuthController', 'migrateProdSchemaFixed');
 $this->post('api/auth/login', 'Api\AuthController', 'login');
 $this->post('api/auth/register', 'Api\AuthController', 'register');
 

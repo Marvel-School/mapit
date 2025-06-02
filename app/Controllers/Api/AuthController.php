@@ -401,6 +401,136 @@ class AuthController extends Controller
     }
 
     /**
+     * Fixed migration endpoint with proper MySQL syntax
+     * 
+     * @return void
+     */
+    public function migrateProdSchemaFixed()
+    {
+        try {
+            $db = Database::getInstance();
+            
+            // First, check which columns exist
+            $db->query("DESCRIBE users");
+            $currentColumns = $db->resultSet();
+            $columnNames = array_column($currentColumns, 'Field');
+            
+            $results = [];
+            
+            // Add missing columns only if they don't exist
+            if (!in_array('password_hash', $columnNames)) {
+                try {
+                    $db->query("ALTER TABLE users ADD COLUMN password_hash varchar(255) DEFAULT NULL AFTER email");
+                    $results[] = "SUCCESS: Added password_hash column";
+                } catch (\Exception $e) {
+                    $results[] = "ERROR: Adding password_hash - " . $e->getMessage();
+                }
+            } else {
+                $results[] = "SKIPPED: password_hash column already exists";
+            }
+            
+            if (!in_array('name', $columnNames)) {
+                try {
+                    $db->query("ALTER TABLE users ADD COLUMN name varchar(100) DEFAULT NULL AFTER password_hash");
+                    $results[] = "SUCCESS: Added name column";
+                } catch (\Exception $e) {
+                    $results[] = "ERROR: Adding name - " . $e->getMessage();
+                }
+            } else {
+                $results[] = "SKIPPED: name column already exists";
+            }
+            
+            if (!in_array('country', $columnNames)) {
+                try {
+                    $db->query("ALTER TABLE users ADD COLUMN country varchar(2) DEFAULT NULL");
+                    $results[] = "SUCCESS: Added country column";
+                } catch (\Exception $e) {
+                    $results[] = "ERROR: Adding country - " . $e->getMessage();
+                }
+            } else {
+                $results[] = "SKIPPED: country column already exists";
+            }
+            
+            if (!in_array('settings', $columnNames)) {
+                try {
+                    $db->query("ALTER TABLE users ADD COLUMN settings json DEFAULT NULL");
+                    $results[] = "SUCCESS: Added settings column";
+                } catch (\Exception $e) {
+                    $results[] = "ERROR: Adding settings - " . $e->getMessage();
+                }
+            } else {
+                $results[] = "SKIPPED: settings column already exists";
+            }
+            
+            if (!in_array('last_login', $columnNames)) {
+                try {
+                    $db->query("ALTER TABLE users ADD COLUMN last_login timestamp DEFAULT NULL");
+                    $results[] = "SUCCESS: Added last_login column";
+                } catch (\Exception $e) {
+                    $results[] = "ERROR: Adding last_login - " . $e->getMessage();
+                }
+            } else {
+                $results[] = "SKIPPED: last_login column already exists";
+            }
+            
+            // Update the role enum to include moderator
+            try {
+                $db->query("ALTER TABLE users MODIFY COLUMN role enum('user','admin','moderator') NOT NULL DEFAULT 'user'");
+                $results[] = "SUCCESS: Updated role enum";
+            } catch (\Exception $e) {
+                $results[] = "ERROR: Updating role enum - " . $e->getMessage();
+            }
+            
+            // Copy existing password data to password_hash column if password_hash exists and password exists
+            if (in_array('password_hash', $columnNames) && in_array('password', $columnNames)) {
+                try {
+                    $db->query("UPDATE users SET password_hash = password WHERE password_hash IS NULL AND password IS NOT NULL");
+                    $results[] = "SUCCESS: Copied password data to password_hash";
+                } catch (\Exception $e) {
+                    $results[] = "ERROR: Copying password data - " . $e->getMessage();
+                }
+                
+                // Make password_hash NOT NULL after copying data
+                try {
+                    $db->query("ALTER TABLE users MODIFY COLUMN password_hash varchar(255) NOT NULL");
+                    $results[] = "SUCCESS: Made password_hash NOT NULL";
+                } catch (\Exception $e) {
+                    $results[] = "ERROR: Making password_hash NOT NULL - " . $e->getMessage();
+                }
+                
+                // Drop the old password column
+                try {
+                    $db->query("ALTER TABLE users DROP COLUMN password");
+                    $results[] = "SUCCESS: Dropped old password column";
+                } catch (\Exception $e) {
+                    $results[] = "ERROR: Dropping password column - " . $e->getMessage();
+                }
+            }
+            
+            // Get final schema
+            $db->query("DESCRIBE users");
+            $finalSchema = $db->resultSet();
+            
+            $this->cleanJsonResponse([
+                'success' => true,
+                'message' => 'Fixed migration completed',
+                'data' => [
+                    'migration_results' => $results,
+                    'final_schema' => $finalSchema,
+                    'timestamp' => date('Y-m-d H:i:s')
+                ]
+            ], 200);
+            
+        } catch (\Exception $e) {
+            $this->cleanJsonResponse([
+                'success' => false,
+                'message' => 'Fixed migration failed: ' . $e->getMessage(),
+                'error_code' => 'MIGRATION_ERROR'
+            ], 500);
+        }
+    }
+
+    /**
      * Send clean JSON response by discarding any previous output
      * 
      * @param array $data

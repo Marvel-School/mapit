@@ -1,0 +1,10 @@
+{
+    "recommendations": [
+        "ms-vscode.vscode-php-debug",
+        "bmewburn.vscode-intelephense-client"
+    ],
+    "unwantedRecommendations": [
+        "felixfbecker.php-debug",
+        "ms-vscode.vscode-php-intellisense"
+    ]
+}

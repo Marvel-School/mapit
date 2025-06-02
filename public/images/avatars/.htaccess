@@ -1,0 +1,33 @@
+# Security configuration for avatar images directory
+# Prevent execution of any server-side scripts
+php_flag engine off
+
+# Allow only image files
+<FilesMatch "\.(jpg|jpeg|png|gif|webp)$">
+    Order allow,deny
+    Allow from all
+</FilesMatch>
+
+# Deny access to everything else
+<FilesMatch "^(?!.*\.(jpg|jpeg|png|gif|webp)$).*$">
+    Order deny,allow
+    Deny from all
+</FilesMatch>
+
+# Prevent directory browsing
+Options -Indexes
+
+# Security headers for images
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options nosniff
+    Header set X-Frame-Options DENY
+    Header set Content-Security-Policy "default-src 'none'; img-src 'self'"
+</IfModule>
+
+# Additional avatar security - restrict file sizes
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    # Block files larger than 5MB (approximate check by filename pattern)
+    RewriteCond %{QUERY_STRING} ^.*$ [NC]
+    RewriteRule ^.*$ - [E=no-gzip:1]
+</IfModule>

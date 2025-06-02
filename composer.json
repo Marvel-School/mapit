@@ -1,0 +1,21 @@
+{
+    "name": "mapit/application",
+    "description": "A travel destination mapping and tracking platform",
+    "type": "project",    "require": {
+        "php": ">=7.4"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "app/"
+        }
+    },
+    "scripts": {
+        "seed": "php scripts/DatabaseSeeder.php"
+    },
+    "authors": [
+        {
+            "name": "MapIt Developer",
+            "email": "developer@mapit.com"
+        }
+    ]
+}

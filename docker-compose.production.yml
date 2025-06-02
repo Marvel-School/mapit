@@ -1,0 +1,100 @@
+﻿version: '3.8'
+
+services:
+  # PHP Application
+  php:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mapit_php_prod
+    environment:
+      TZ: Europe/Amsterdam
+    volumes:
+      - ./storage:/var/www/html/storage
+      - ./storage/logs:/var/www/html/logs
+      - ./.env:/var/www/html/.env
+    networks:
+      - mapit_network
+    depends_on:
+      - mysql
+      - redis
+    restart: unless-stopped
+
+  # Nginx Web Server
+  nginx:
+    image: nginx:alpine
+    container_name: mapit_nginx_prod
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/production/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/production/nginx/https.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./storage/logs/nginx:/var/log/nginx
+      - certbot_www:/var/www/certbot
+      - certbot_conf:/etc/nginx/ssl:ro
+    networks:
+      - mapit_network
+    depends_on:
+      - php
+    restart: unless-stopped
+
+  # MySQL Database
+  mysql:
+    image: mysql:8.0
+    container_name: mapit_mysql_prod
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password_123
+      MYSQL_DATABASE: mapit_production
+      MYSQL_USER: mapit_prod_user
+      MYSQL_PASSWORD: prod_db_password_456
+      TZ: Europe/Amsterdam
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - mapit_network
+    restart: unless-stopped
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: mapit_redis_prod
+    volumes:
+      - redis_data:/data
+    networks:
+      - mapit_network
+    restart: unless-stopped
+
+  # Let's Encrypt Certbot
+  certbot:
+    image: certbot/certbot:latest
+    container_name: mapit_certbot
+    volumes:
+      - certbot_www:/var/www/certbot
+      - certbot_conf:/etc/letsencrypt
+    command: >-
+      certonly --webroot
+      --webroot-path=/var/www/certbot
+      --email admin@mapitedu.nl
+      --agree-tos
+      --no-eff-email
+      --force-renewal
+      -d mapitedu.nl
+      -d www.mapitedu.nl
+    depends_on:
+      - nginx
+
+volumes:
+  mysql_data:
+    driver: local
+  redis_data:
+    driver: local
+  certbot_www:
+    driver: local
+  certbot_conf:
+    driver: local
+
+networks:
+  mapit_network:
+    driver: bridge
+    name: mapit_prod_network

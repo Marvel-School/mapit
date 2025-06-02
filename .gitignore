@@ -1,0 +1,135 @@
+# Environment variables and sensitive configuration
+.env
+.env.local
+.env.production
+.env.development
+.env.test
+.env.*
+
+# VS Code files that might cause cache issues
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+.vscode-upload.json
+.vscode/file-monitor.log
+.vscode/prevent-file-recreation.ps1
+
+# Local History for Visual Studio Code
+.history/
+
+# Temp files
+*.tmp
+*.bak
+*.swp
+*~.nib
+
+# Logs and databases
+*.log
+*.sql
+*.sqlite
+storage/logs/*
+
+# Backup files and directories (should never be in version control)
+backups/
+backup/
+*.backup
+*_backup*
+*.dump
+*.sql.gz
+*.sql.bz2
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# User-specific files
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Test and Debug Files - NEVER COMMIT THESE
+test-*.php
+debug-*.php
+verify-*.php
+*verification*.php
+test-*.html
+auto-login.php
+check-*.php
+setup-test-data.php
+comprehensive-*.php
+docker-auto-login.php
+clear-*.php
+
+# Additional test patterns to prevent future clutter
+*test*.php
+*test*.html
+*test*.js
+*test*.ps1
+*debug*.php
+*debug*.html
+*debug*.js
+*diagnose*.php
+*diagnostic*.php
+temp_*.php
+screenshot_*.php
+create_test_*.php
+ultra_clean.*
+*-test.*
+*_test.*
+api_*_debug.*
+session_*_test.*
+csrf-*-test.*
+login_*_test.*
+profile-*-test.*
+avatar-*-test.*
+
+# Documentation generated during development
+*_COMPLETE.md
+*_FIX_COMPLETE.md
+DOCKER_DEPLOYMENT_COMPLETE.md
+FEATURED_DESTINATIONS_FIX_COMPLETE.md
+INTERACTIVE_MAP_FIX_COMPLETE.md
+PROFILE_PAGE_FIX_COMPLETE.md
+TRIP_STATUS_BADGES_COMPLETE.md
+
+# Cleanup scripts and utilities
+cleanup_*.ps1
+cleanup_*.sh
+simple_cleanup.ps1
+
+# Debug and utility scripts in root directory
+check-*.php
+badge_*.php
+populate_*.php
+view_*.php
+complete_*.php
+*_report.php
+*_validation.php
+
+# Development documentation
+CLEANUP_SUCCESS.md
+*_SUCCESS.md
+*_REPORT.md
+
+# Scripts directory contents (development utilities)
+scripts/*.php
+scripts/*.sh
+scripts/*.ps1
+
+# User-uploaded content (should never be in version control)
+public/images/destinations/*
+!public/images/destinations/.htaccess
+public/images/avatars/*
+!public/images/avatars/.htaccess
+uploads/
+uploaded/

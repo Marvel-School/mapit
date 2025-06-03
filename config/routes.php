@@ -72,6 +72,7 @@ $this->get('api/public/destinations/{id}', 'Api\PublicDestinationController', 's
 
 // API routes
 $this->get('api/health', 'Api\AuthController', 'healthCheck');
+$this->get('api/debug/user-badges-schema', 'Api\AuthController', 'debugUserBadgesSchema');
 $this->post('api/auth/login', 'Api\AuthController', 'login');
 $this->post('api/auth/register', 'Api\AuthController', 'register');
 

@@ -531,6 +531,53 @@ class AuthController extends Controller
     }
 
     /**
+     * Debug endpoint to check user_badges table schema
+     * 
+     * @return void
+     */
+    public function debugUserBadgesSchema()
+    {
+        try {
+            $db = Database::getInstance();
+            
+            // Check if user_badges table exists
+            $db->query("SHOW TABLES LIKE 'user_badges'");
+            $tableExists = $db->single();
+            
+            if (!$tableExists) {
+                $this->cleanJsonResponse([
+                    'success' => false,
+                    'message' => 'user_badges table does not exist',
+                    'data' => []
+                ]);
+                return;
+            }
+            
+            // Get table schema
+            $db->query("SHOW COLUMNS FROM user_badges");
+            $columns = $db->resultSet();
+            
+            $this->cleanJsonResponse([
+                'success' => true,
+                'message' => 'user_badges table schema retrieved',
+                'data' => [
+                    'table_exists' => true,
+                    'columns' => $columns,
+                    'timestamp' => date('Y-m-d H:i:s')
+                ]
+            ]);
+            
+        } catch (\Exception $e) {
+            $this->cleanJsonResponse([
+                'success' => false,
+                'message' => 'Error checking user_badges schema',
+                'error' => $e->getMessage(),
+                'data' => []
+            ], 500);
+        }
+    }
+
+    /**
      * Send clean JSON response by discarding any previous output
      * 
      * @param array $data

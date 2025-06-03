@@ -80,30 +80,30 @@ class User extends Model
             if ($userId) {
                 $logModel::write('INFO', "Registration successful", ['user_id' => $userId, 'username' => $data['username']], 'Authentication');
             }
-            return $userId;
-        } catch (\Exception $e) {
+            return $userId;        } catch (\Exception $e) {
             // If 'password' column fails, try 'password_hash'
             unset($data['password']);
             $data['password_hash'] = $hashedPassword;
             
             $userId = $this->create($data);
         
-        if ($userId) {
-            $logModel::write('INFO', "Registration successful", ['user_id' => $userId, 'username' => $data['username']], 'Authentication');
-        } else {
-            $logModel::write('ERROR', "Registration failed", ['username' => $data['username'], 'email' => $data['email']], 'Authentication');
-        }
+            if ($userId) {
+                $logModel::write('INFO', "Registration successful", ['user_id' => $userId, 'username' => $data['username']], 'Authentication');
+            } else {
+                $logModel::write('ERROR', "Registration failed", ['username' => $data['username'], 'email' => $data['email']], 'Authentication');
+            }
         
-        return $userId;
+            return $userId;
+        }
     }
-    
     /**
      * Verify user credentials
      * 
      * @param string $username
      * @param string $password
      * @return array|bool
-     */    public function authenticate($username, $password)
+     */
+    public function authenticate($username, $password)
     {
         // Check if username is an email address
         $isEmail = filter_var($username, FILTER_VALIDATE_EMAIL);

@@ -4,7 +4,7 @@ namespace App\Models;
 
 use App\Core\Model;
 
-class Badge extends Model
+class Badge extends Model //Voldoet niet aan opdracht, is geen ORM. En is te complex. Zelfde voor alle models.
 {
     protected $table = 'badges';    protected $fillable = [
         'name', 'description', 'threshold', 'icon', 'category', 'difficulty', 'points'

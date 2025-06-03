@@ -65,7 +65,11 @@ class Database
      * 
      * @return void
      */
-    private function loadEnvironmentIfNeeded()
+    private function loadEnvironmentIfNeeded() 
+    //Als je dit al wil doen (je moet al je code kunnen uitleggen, dit is echt een hoop chatGPT woordenbrei)
+    // Dan zou ik een aparte utility functie maken die de env file uitlees en globally opslaat,]
+    // IPV de logica te dupliceren op meerdere plekken in je project.
+    // Volgens mij kan deze hele functie weg.
     {
         // Check if environment variables are already loaded
         if (getenv('DB_HOST') === false) {
@@ -126,7 +130,8 @@ class Database
     
     /**
      * Prepare and execute a database query with security validation
-     * 
+     * Deze comment klopt niet, de query wordt niet uitgevoerd, alleen voorbereid.
+     * Hernoem functie naar prepareQuery of zoiets.
      * @param string $query
      * @return Database
      */
@@ -154,7 +159,7 @@ class Database
      * @throws \Exception
      * @return void
      */
-    protected function validateQuerySecurity($query)
+    protected function validateQuerySecurity($query) //Waarom bestaat dit? Jullie schrijven zelf alle queries, en gebruiken prepared statements, dus dit hoeft helemaal niet. User-defined queries uitvoeren is nooit een goed idee.
     {
         // Remove comments and normalize whitespace
         $normalizedQuery = preg_replace('/\/\*.*?\*\//', '', $query);
@@ -194,7 +199,7 @@ class Database
      * @param int|null $type
      * @return void
      */
-    public function bind($param, $value, $type = null)
+    public function bind($param, $value, $type = null) //Waarom is dit nodig? En waarom is dit zo ingewikkeld? Je moet je code 
     {
         if (is_null($type)) {
             switch (true) {
@@ -235,7 +240,7 @@ class Database
      * @return mixed
      * @throws \Exception
      */
-    public function transaction($callback)
+    public function transaction($callback) //Kan je uitleggen waarom je dit nodig hebt? Geen code gebruiken die je niet begrijpt.
     {
         if (!$this->connection) {
             throw new \Exception('Database connection failed: ' . $this->error);
@@ -268,11 +273,13 @@ class Database
             return $this->statement ? $this->statement->execute() : false;
         } catch (PDOException $e) {
             $this->error = $e->getMessage();
-            Logger::error('Database Query Error: ' . $this->error);
-            return false;
+            Logger::error('Database Query Error: ' . $this->error); //Waarom?
+            return false; //Geen crash?
         }
     }
 
+
+    //Hieronder heb je een hoop functies die gewoon de db connectie direct wrappen. Mag, maar bedenk dat alle code die je extra zelf schrijft extra onderhoud en mental load veroorzaakt.
     /**
      * Get result set as array of objects
      * 

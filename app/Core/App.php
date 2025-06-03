@@ -21,7 +21,7 @@ class App
      * Initialize the application
      * 
      * @return void
-     */    public function init()
+     */    public function init() //Zouden jullie echt kunnen uitleggen wat dit doet en waarom jullie dit zo hebben gedaan?
     {
         // Load environment variables first
         $this->loadEnvironment();
@@ -62,7 +62,7 @@ class App
      * 
      * @return void
      */
-    protected function loadEnvironment()
+    protected function loadEnvironment() //Deze code heb je op meerdere plekken verder in je code gedupliceerd.
     {
         $envFile = __DIR__ . '/../../.env';
         if (file_exists($envFile)) {
@@ -135,7 +135,7 @@ class App
      * 
      * @return void
      */
-    protected function setupErrorHandling()
+    protected function setupErrorHandling() //Same here, kan je dit uitleggen? Waarom is dit nodig?
     {
         // Set error handler
         set_error_handler(function($errno, $errstr, $errfile, $errline) {
@@ -208,7 +208,7 @@ class App
      * @param array $data
      * @return void
      */
-    protected function logError($message, $level = 'ERROR', array $data = [])
+    protected function logError($message, $level = 'ERROR', array $data = []) //Same here, kan je uitleggen waarom dit nodig is? En hoe het werkt?
     {
         // Use our Logger class first to ensure the error is captured
         if (class_exists('\App\Core\Logger')) {

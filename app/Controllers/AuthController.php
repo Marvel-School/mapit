@@ -29,11 +29,11 @@ class AuthController extends Controller
      * Process login form
      * 
      * @return void
-     */    public function processLogin()
+     */    public function processLogin() //Controller volgens opdracht moet 1 entry point hebben. Te complex.
     {
         try {
             // Validate CSRF token
-            $this->validateCSRF('/login');
+            $this->validateCSRF('/login'); //Verklaar.
             
             // Get form data
             $username = $_POST['username'] ?? '';
@@ -75,7 +75,7 @@ class AuthController extends Controller
                 return;
             }
               // Set session variables
-            $_SESSION['user_id'] = $user['id'];
+            $_SESSION['user_id'] = $user['id']; //Moet via model.
             $_SESSION['username'] = $user['username'];
             $_SESSION['user_role'] = $user['role'];
             

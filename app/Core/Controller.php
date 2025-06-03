@@ -10,7 +10,7 @@ class Controller
      * @param string $model
      * @return object
      */
-    public function model($model)
+    public function model($model) //Doet hetzelfde als de autoloader, maar dan voor models. Waarom zou je dit doen? Waarom niet gewoon de model direct includen? Zie commentaar in de autoloader class.
     {
         $modelClass = "App\\Models\\{$model}";
         return new $modelClass();
@@ -23,7 +23,12 @@ class Controller
      * @param array $data
      * @return void
      */    public function view($view, $data = [])
-    {
+    { //Vreselijke code, waarom zou je dit doen? Waarom niet gewoon de view direct includen?
+        // Door deze manier krijg je slechte error reporting over welke views je gebruikt, kan je niet snel er naar doorklikken,
+        // en het maakt het moeilijker om de views te vinden. Ook zijn je checks voor wat een view nodig heeft weg, en moet je de hele view lezen om te weten welke string-keyed values je moet meegeven. Als er ooit een in een view een variable wordt hernoemd breekt alles.
+        // Zie voorbeeld in fase 3, roep elke view direct aan en geef de data direct mee als parameters.
+
+
         // Add common data that all views might need
         $data = array_merge($this->getCommonViewData(), $data);
         
@@ -69,7 +74,7 @@ class Controller
      * @param string $url
      * @return void
      */
-    public function redirect($url)
+    public function redirect($url) //Waarom?
     {
         header('Location: ' . $url);
         exit();
@@ -82,7 +87,7 @@ class Controller
      * @param int $statusCode
      * @return void
      */
-    public function json($data, $statusCode = 200)
+    public function json($data, $statusCode = 200) //Mag, check of je dit gebruikt.
     {
         header('Content-Type: application/json');
         http_response_code($statusCode);
@@ -95,7 +100,7 @@ class Controller
      * 
      * @return bool
      */
-    public function isLoggedIn()
+    public function isLoggedIn() //Dit en de rollen logica moet in de model map, maar er een eigen class van, desnoods volledig static, want dit heeft te maken met data validatie enzo.
     {
         return isset($_SESSION['user_id']);
     }
@@ -106,7 +111,7 @@ class Controller
      * @param string|array $roles
      * @return bool
      */
-    public function hasRole($roles)
+    public function hasRole($roles)  //zie vorige comment
     {
         if (!$this->isLoggedIn()) {
             return false;
@@ -126,7 +131,7 @@ class Controller
      * 
      * @return void
      */
-    public function requireLogin()
+    public function requireLogin() //zie vorige comment
     {
         // Session is already configured and started in App.php
         // Just ensure we have a session (should already be active)
@@ -169,7 +174,7 @@ class Controller
      * @param string $redirect
      * @return void
      */
-    public function requireRole($roles, $redirect = '/login')
+    public function requireRole($roles, $redirect = '/login') //Acceptabel omdat je veelbestaande doorverwijslogica als method herbruikt.
     {
         if (!$this->hasRole($roles)) {
             $this->redirect($redirect);
@@ -179,7 +184,7 @@ class Controller
      * 
      * @return array
      */
-    protected function getCommonViewData()
+    protected function getCommonViewData() // Wat doet dit? Waarom? Waarom staat dit niet in je .env?
     {
         $commonData = [];
         
@@ -203,7 +208,7 @@ class Controller
      * @param bool $asArray Whether to return as array with code/name keys (true) or associative array (false)
      * @return array
      */
-    protected function getCountries($asArray = false)
+    protected function getCountries($asArray = false) //Waarvoor nodig? Vervang hardcoded landenlijst met een csv file die makkelijk aangepast kan worden als er bv een land bij komt of weggaat. Maar geen hoge prio feedback.
     {
         $countries = [
             'US' => 'United States',
@@ -231,7 +236,7 @@ class Controller
             'BR' => 'Brazil',
             'AR' => 'Argentina',
             'MX' => 'Mexico',
-            // Add more countries as needed
+            // Add more countries as needed   //Beetje lui dit jongens.
         ];
 
         if ($asArray) {
@@ -250,7 +255,7 @@ class Controller
      * 
      * @param string $redirect
      * @return void
-     */    public function validateCSRF($redirect = null)
+     */    public function validateCSRF($redirect = null) //Kan je uitleggen wat CSRF is en waarom je deze code nodig hebt? Waarom zou je dit doen?
     {
         $token = $_POST['csrf_token'] ?? '';
         
@@ -274,7 +279,7 @@ class Controller
      * @param mixed $data
      * @return mixed
      */
-    protected function sanitizeInput($data)
+    protected function sanitizeInput($data) //waar gebruik je dit? Kan wel, zet in utility, heeft niks met controllers te maken.
     {
         if (is_array($data)) {
             foreach ($data as $key => $value) {
@@ -301,7 +306,7 @@ class Controller
      * @param float|null $max
      * @return float|false
      */
-    protected function validateNumeric($value, $min = null, $max = null)
+    protected function validateNumeric($value, $min = null, $max = null) //zie vorige comment
     {
         if (!is_numeric($value)) {
             return false;
@@ -328,7 +333,7 @@ class Controller
      * @param int $timeWindow
      * @return bool
      */
-    protected function checkRateLimit($action, $maxAttempts = 5, $timeWindow = 300)
+    protected function checkRateLimit($action, $maxAttempts = 5, $timeWindow = 300) //Leg uit, onnodig.
     {
         $key = $action . '_' . ($_SERVER['REMOTE_ADDR'] ?? 'unknown');
         
@@ -364,7 +369,7 @@ class Controller
      * 
      * @return void
      */
-    protected static function validateSessionIntegrity()
+    protected static function validateSessionIntegrity() //Zie comment bij CSRF
     {
         // Check if user agent changed (possible session hijacking)
         $currentUserAgent = $_SERVER['HTTP_USER_AGENT'] ?? '';

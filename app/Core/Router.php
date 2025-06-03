@@ -2,7 +2,7 @@
 
 namespace App\Core;
 
-class Router
+class Router //Niet gelijk aan router zoals gegeven in fase 4. Verwijder router totdat je een project hebt dat je helemaal snapt en dat werkt.
 {
     protected $routes = [
         'GET' => [],

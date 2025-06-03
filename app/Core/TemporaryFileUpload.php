@@ -6,7 +6,7 @@
 
 namespace App\Core;
 
-class TemporaryFileUpload extends FileUpload {
+class TemporaryFileUpload extends FileUpload { //Waarvoor nodig?
     
     protected function scanForMaliciousContent($content) {
         // First, validate this is actually a proper image

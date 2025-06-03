@@ -4,7 +4,7 @@ namespace App\Core;
 
 use App\Core\Database;
 
-class Validator
+class Validator //Waarom. Bespaart dit jullie echt code ipv gewoon de ingebouwse PHP validators te gebruiken?
 {
     protected $errors = [];
     protected $data = [];

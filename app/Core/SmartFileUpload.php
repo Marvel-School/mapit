@@ -11,7 +11,8 @@ namespace App\Core;
  * 3. Context-aware detection - understands difference between code and pixel data
  * 4. Configurable security levels - adapts to different use cases
  */
-class SmartFileUpload
+class SmartFileUpload //Absurd. Waarom hebben jullie code nodig dat uploads extra scant en kijkt of het code is?
+//Waar gebruik je dit?
 {
     protected $uploadPath;
     protected $allowedTypes;

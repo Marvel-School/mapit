@@ -66,7 +66,7 @@ abstract class Model
      * @param mixed $value
      * @return array|bool
      */
-    public function findBy($field, $value)
+    public function findBy($field, $value) //herbruik method "where" zie hierboven staat.
     {
         $this->db->query("SELECT * FROM {$this->table} WHERE {$field} = :value");
         $this->db->bind(':value', $value);
@@ -80,7 +80,8 @@ abstract class Model
      * @param array $data
      * @return int|bool
      */
-    public function create(array $data)
+    public function create(array $data) //Erg complex. Waarom? Kan je uitleggen wat er gebeurt?
+    //Voldoet niet aan opdracht project dat je model van fase 3 moet gebruiken, dus zou een onvoldoende worden.
     {
         // Filter data to only include fillable fields
         $data = $this->filterFillable($data);
@@ -117,7 +118,7 @@ abstract class Model
      * @param array $data
      * @return bool
      */
-    public function update($id, array $data)
+    public function update($id, array $data) //Zie boven
     {
         // Filter data to only include fillable fields
         $data = $this->filterFillable($data);
@@ -165,7 +166,7 @@ abstract class Model
      * 
      * @return int
      */
-    public function count()
+    public function count() //Gebruik je dit?
     {
         $this->db->query("SELECT COUNT(*) as count FROM {$this->table}");
         $result = $this->db->single();
@@ -196,7 +197,7 @@ abstract class Model
      * @param array $data
      * @return array
      */
-    protected function filterFillable(array $data)
+    protected function filterFillable(array $data) //Waarom?
     {
         return array_intersect_key($data, array_flip($this->fillable));
     }
@@ -206,7 +207,7 @@ abstract class Model
      * 
      * @return bool
      */
-    public function beginTransaction()
+    public function beginTransaction() //Waarom?
     {
         return $this->db->beginTransaction();
     }

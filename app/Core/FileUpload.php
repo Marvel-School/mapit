@@ -2,7 +2,8 @@
 
 namespace App\Core;
 
-class FileUpload
+class FileUpload //Is een model, geen core class. En zou dus in de models directory moeten staan.
+//Maar is veel te ingewikkeld. Maak een simpelere versie die alleen de basis functionaliteit heeft, zodat je het kan uitleggen.
 {
     /**
      * Maximum file size in bytes (5MB)

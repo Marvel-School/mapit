@@ -2,7 +2,9 @@
 
 namespace App\Core;
 
-class Autoloader
+class Autoloader //Onnodig en maakt je code slechter leesbaar, het is echt heel slechte code om uberhaupt te schrijven.
+// Je kan gewoon de classes die je nodig hebt direct includen. Een autoloader eigenlijk alleen nodig als je een heel complex plugin systeem hebt. En dat hebben jullie niet. En je moet geen code schrijven voor iets wat je niet nodig hebt.
+//Autoloaders saboteren alle veiligheidstools van IDEs etc. voor weinig tot geen voordeel.
 {
     /**
      * Class loader

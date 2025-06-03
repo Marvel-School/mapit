@@ -4,7 +4,7 @@
 
 namespace App\Core;
 
-class RelaxedFileUpload extends FileUpload
+class RelaxedFileUpload extends FileUpload //Onnodig
 {
     /**
      * Override the security scan to be less strict for debugging

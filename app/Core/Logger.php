@@ -2,7 +2,7 @@
 
 namespace App\Core;
 
-class Logger
+class Logger //Vinden jullie dit echt nodig? Kan je het volledig uitleggen?
 {
     const INFO = 'INFO';
     const WARN = 'WARN';

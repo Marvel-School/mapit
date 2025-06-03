@@ -2,7 +2,7 @@
 
 namespace App\Core;
 
-class Request
+class Request //Verklaar waarom dit nodig is voor jullie project. Hoe maak het jullie code simpeler, beter te gebrijpen, en beter onderhoudbaar?
 {    /**
      * Get the request URI
      * 

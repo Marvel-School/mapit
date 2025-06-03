@@ -2,7 +2,7 @@
 
 namespace App\Core;
 
-class View
+class View //Onnodig complex en voldoet niet aan de opdracht.
 {
     /**
      * Render a view with data

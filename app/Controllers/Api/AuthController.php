@@ -531,6 +531,72 @@ class AuthController extends Controller
     }
 
     /**
+     * Migrate user_badges table schema to match local development
+     * 
+     * @return void
+     */
+    public function migrateUserBadgesSchema()
+    {
+        try {
+            $db = Database::getInstance();
+            
+            // Check current column name
+            $db->query("SHOW COLUMNS FROM user_badges WHERE Field LIKE 'earned_%'");
+            $currentColumn = $db->single();
+            
+            if (!$currentColumn) {
+                $this->cleanJsonResponse([
+                    'success' => false,
+                    'message' => 'No earned column found in user_badges table',
+                    'data' => []
+                ]);
+                return;
+            }
+            
+            $currentColumnName = $currentColumn['Field'];
+            
+            if ($currentColumnName === 'earned_date') {
+                $this->cleanJsonResponse([
+                    'success' => true,
+                    'message' => 'user_badges table already has earned_date column',
+                    'data' => ['current_column' => $currentColumnName]
+                ]);
+                return;
+            }
+            
+            // Rename earned_at to earned_date
+            if ($currentColumnName === 'earned_at') {
+                $db->query("ALTER TABLE user_badges CHANGE COLUMN earned_at earned_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP");
+                $db->execute();
+                
+                $this->cleanJsonResponse([
+                    'success' => true,
+                    'message' => 'Successfully renamed earned_at to earned_date',
+                    'data' => [
+                        'old_column' => $currentColumnName,
+                        'new_column' => 'earned_date',
+                        'timestamp' => date('Y-m-d H:i:s')
+                    ]
+                ]);
+            } else {
+                $this->cleanJsonResponse([
+                    'success' => false,
+                    'message' => 'Unexpected column name in user_badges table',
+                    'data' => ['current_column' => $currentColumnName]
+                ]);
+            }
+            
+        } catch (\Exception $e) {
+            $this->cleanJsonResponse([
+                'success' => false,
+                'message' => 'Error migrating user_badges schema',
+                'error' => $e->getMessage(),
+                'data' => []
+            ], 500);
+        }
+    }
+
+    /**
      * Debug endpoint to check user_badges table schema
      * 
      * @return void
